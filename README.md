@@ -33,16 +33,15 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
-- [ ] D3L level format (D3)
-- [ ] OOF model format (D3)
+- [ ] Sound format parsers (D1/D2: SNDs, HMP/MIDI)
+- [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Additional level format features (D2X-XL extensions)
-- [ ] Sound format parsers (OSF for D3, WAV for all)
 
-**📋 Next Up:**
-- [ ] Complete D3 format support (OGF, D3L, OOF, GAM, MN3)
-- [ ] Level rendering (Phase 2 - multi-game)
-- [ ] Physics system (Phase 3 - game-specific)
-- [ ] Gameplay systems (Phase 4+)
+**📋 Next Up (D1/D2 First):**
+- [ ] Complete D1/D2 asset parsers (sound, missions, savegames)
+- [ ] Level rendering (Phase 2 - D1/D2 segment-based)
+- [ ] Physics system (Phase 3 - D1/D2)
+- [ ] D3 format support (later - D3L, OOF, OSF, GAM, MN3)
 
 ## Why Rewrite?
 
@@ -65,13 +64,16 @@ D2X-RS addresses these by:
 
 ### Core Engine
 
-- **Descent 1, 2 & 3 Support**: Full compatibility with original game data files from all three games
+**Primary Focus: Descent 1 & 2** (D3 support planned for later phases)
+
+- **Descent 1 & 2 Support**: Full compatibility with original game data files
 - **6DOF Flight**: Complete six degrees of freedom movement
-- **Portal-Based Rendering**: Optimized visibility culling (segment-based for D1/D2, room-based for D3)
+- **Segment-Based Rendering**: Portal-based visibility culling with segment graph
 - **Advanced Physics**: Collision detection, realistic movement
-- **AI System**: Robot behaviors, pathfinding through segment/room graphs
-- **Weapons**: All primary and secondary weapons from D1/D2/D3
+- **AI System**: Robot behaviors, pathfinding through segment connections
+- **Weapons**: All primary and secondary weapons from D1/D2
 - **Multiplayer**: Modern client-server networking
+- **Descent 3**: Planned for future phases (room-based rendering, different AI)
 
 ### Enhancements (Feature-Gated)
 
@@ -199,17 +201,24 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ### Phase 1: Asset Foundation (Months 1-2) - 🚧 IN PROGRESS
 
-**✅ D1/D2 Completed:**
+**✅ D1/D2 Core Formats:**
 - [x] HOG archive parser (DHF format) with comprehensive tests
 - [x] PIG texture extraction with RLE decompression
 - [x] HAM game data parser (textures, robots, weapons, sounds)
 - [x] Level geometry loader (RDL/RL2 format)
+- [x] POF model parser (ships, robots, powerups) with 9 opcodes
 - [x] Palette handling (6-bit to 8-bit conversion)
 - [x] Fixed-point math support (16.16 format)
-- [x] Unit tests with 35 tests passing
-- [x] Format documentation (1000+ lines across multiple files)
+- [x] 53 unit tests passing
+- [x] Format documentation (2000+ lines across multiple files)
 
-**✅ D3 Initial Support:**
+**🚧 D1/D2 Remaining (Priority):**
+- [ ] Sound format parsers (SNDs, HMP/MIDI)
+- [ ] Mission file parser (.MSN for D1/D2)
+- [ ] Savegame format parser
+- [ ] Integration tests with real game files
+
+**✅ D3 Initial Support (Lower Priority):**
 - [x] HOG2 archive parser (separate module: hog2.rs)
 - [x] 36-char filenames, flags, and timestamps
 - [x] Split architecture: dhf.rs (D1/D2) and hog2.rs (D3)
@@ -218,46 +227,47 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] OGF texture format parser (RGB565/RGBA4444/RGBA8888 support)
 - [x] 7 comprehensive OGF unit tests with bit-accurate color conversion
 
-**🚧 D3 Remaining:**
+**📋 D3 Remaining (Future):**
 - [ ] D3L level format (room-based geometry)
 - [ ] OOF model format (Outrage Object)
 - [ ] OSF sound format (Outrage Sound)
 - [ ] GAM game data tables
 - [ ] MN3 mission files
 
-**📋 D1/D2 Remaining:**
-- [ ] Sound format parsers (SNDs, HMP/MIDI)
-- [ ] Mission file parser (.MSN for D1/D2)
-- [ ] Savegame format parser
-- [ ] Integration tests with real game files
-
 ### Phase 2: Level Rendering (Month 3) - 📋 PLANNED
+**Focus: Descent 1/2 segment-based rendering first**
 - [ ] Segment mesh generation from D1/D2 level geometry
-- [ ] Room mesh generation from D3 level geometry
 - [ ] Basic camera and free-flight controls
-- [ ] Texture rendering (PIG for D1/D2, OGF for D3)
-- [ ] Portal culling system (segment-based and room-based)
+- [ ] Texture rendering (PIG textures with palette)
+- [ ] POF model rendering (ships, robots, powerups)
+- [ ] Portal culling system (segment-based)
 - [ ] Basic lighting
+- [ ] (Later) Room mesh generation from D3 level geometry
 
 ### Phase 3: Physics (Month 4) - 📋 PLANNED
+**Focus: Descent 1/2 physics first**
 - [ ] 6DOF physics system (six degrees of freedom)
-- [ ] Collision detection with level geometry (game-specific)
+- [ ] Collision detection with D1/D2 level geometry
 - [ ] Wall collision and sliding
 - [ ] Player ship controls and movement
 
 ### Phase 4: Objects & Gameplay (Months 5-6)
-- [ ] Player object
-- [ ] Robot objects (D1/D2) and enemies (D3)
+**Focus: Descent 1/2 gameplay first**
+- [ ] Player ship (D1/D2)
+- [ ] Robot objects with POF models
 - [ ] Powerups
-- [ ] Basic weapons (game-specific)
+- [ ] Basic weapons (primary and secondary)
 - [ ] HUD display
+- [ ] (Later) D3 player and enemies
 
 ### Phase 5: AI & Combat (Months 7-8)
-- [ ] AI behavior system
-- [ ] Pathfinding
+**Focus: Descent 1/2 AI first**
+- [ ] AI behavior system (D1/D2 robot AI)
+- [ ] Pathfinding through segment graph
 - [ ] Combat mechanics
-- [ ] All weapon types
+- [ ] All weapon types (D1/D2)
 - [ ] Particle effects
+- [ ] (Later) D3 AI and combat
 
 ### Phase 6: Game Client (Month 9)
 - [ ] Menu system
