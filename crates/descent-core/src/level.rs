@@ -15,8 +15,11 @@
 //! See `docs/formats/LEVEL_FORMAT.md` for complete format specification.
 
 use crate::error::{AssetError, Result};
+use crate::fixed_point::{Fix, I2X_MULTIPLIER};
+use crate::geometry::{FixVector, Uvl};
+use crate::io::ReadExt;
 use bitflags::bitflags;
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 
 // ================================================================================================
 // CONSTANTS
@@ -51,9 +54,6 @@ pub const MAX_WALL_TEXTURES: usize = 910;
 
 /// Texture ID mask (14 bits)
 pub const TEXTURE_ID_MASK: u16 = 0x3FFF;
-
-/// Fixed-point multiplier (16.16 format)
-pub const I2X_MULTIPLIER: i32 = 65536;
 
 // ================================================================================================
 // ENUMS
@@ -158,49 +158,6 @@ bitflags! {
 // DATA STRUCTURES
 // ================================================================================================
 
-/// Fixed-point number (16.16 format: 16-bit integer, 16-bit fraction)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Fix(pub i32);
-
-impl Fix {
-    // Removed to_f32() method - use Into<f32> trait instead
-}
-
-impl From<f32> for Fix {
-    fn from(val: f32) -> Self {
-        Self((val * I2X_MULTIPLIER as f32) as i32)
-    }
-}
-
-impl From<Fix> for f32 {
-    fn from(fix: Fix) -> Self {
-        fix.0 as f32 / I2X_MULTIPLIER as f32
-    }
-}
-
-/// 3D vector in fixed-point format
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FixVector {
-    pub x: Fix,
-    pub y: Fix,
-    pub z: Fix,
-}
-
-impl FixVector {
-    /// Convert to glam Vec3
-    pub fn to_vec3(&self) -> [f32; 3] {
-        [self.x.into(), self.y.into(), self.z.into()]
-    }
-}
-
-/// UV texture coordinates and lighting value
-#[derive(Debug, Clone, Copy)]
-pub struct UVL {
-    pub u: Fix,
-    pub v: Fix,
-    pub l: Fix,
-}
-
 /// Side type (quad or triangle)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SideType {
@@ -228,7 +185,7 @@ pub struct Side {
     pub overlay_orient: u8,
 
     /// UV coordinates and lighting for 4 corners
-    pub uvls: [UVL; SIDE_CORNER_COUNT],
+    pub uvls: [Uvl; SIDE_CORNER_COUNT],
 
     /// Side shape type
     pub side_type: SideType,
@@ -242,11 +199,7 @@ impl Default for Side {
             base_texture: 0,
             overlay_texture: 0,
             overlay_orient: 0,
-            uvls: [UVL {
-                u: Fix(0),
-                v: Fix(0),
-                l: Fix(0),
-            }; SIDE_CORNER_COUNT],
+            uvls: [Uvl::default(); SIDE_CORNER_COUNT],
             side_type: SideType::Quad,
         }
     }
@@ -308,8 +261,8 @@ impl Default for Segment {
             obj_producer: -1,
             value: 0,
             props: SegmentProps::empty(),
-            damage: [Fix(0); 2],
-            avg_seg_light: Fix(0),
+            damage: [Fix::ZERO; 2],
+            avg_seg_light: Fix::ZERO,
         }
     }
 }
@@ -334,42 +287,9 @@ pub struct Level {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-/// Read u8
-fn read_u8(cursor: &mut Cursor<&[u8]>) -> Result<u8> {
-    let mut buf = [0u8; 1];
-    cursor.read_exact(&mut buf)?;
-    Ok(buf[0])
-}
-
-/// Read i8
-fn read_i8(cursor: &mut Cursor<&[u8]>) -> Result<i8> {
-    Ok(read_u8(cursor)? as i8)
-}
-
-/// Read u16 (little-endian)
-fn read_u16(cursor: &mut Cursor<&[u8]>) -> Result<u16> {
-    let mut buf = [0u8; 2];
-    cursor.read_exact(&mut buf)?;
-    Ok(u16::from_le_bytes(buf))
-}
-
-/// Read i16 (little-endian)
-fn read_i16(cursor: &mut Cursor<&[u8]>) -> Result<i16> {
-    let mut buf = [0u8; 2];
-    cursor.read_exact(&mut buf)?;
-    Ok(i16::from_le_bytes(buf))
-}
-
-/// Read i32 (little-endian)
-fn read_i32(cursor: &mut Cursor<&[u8]>) -> Result<i32> {
-    let mut buf = [0u8; 4];
-    cursor.read_exact(&mut buf)?;
-    Ok(i32::from_le_bytes(buf))
-}
-
 /// Read fixed-point number
 fn read_fix(cursor: &mut Cursor<&[u8]>) -> Result<Fix> {
-    Ok(Fix(read_i32(cursor)?))
+    Ok(Fix::from(cursor.read_i32_le()?))
 }
 
 /// Read 3D vector (fixed-point)
@@ -382,16 +302,16 @@ fn read_fix_vector(cursor: &mut Cursor<&[u8]>) -> Result<FixVector> {
 }
 
 /// Read UVL (texture coordinates + lighting)
-fn read_uvl(cursor: &mut Cursor<&[u8]>) -> Result<UVL> {
+fn read_uvl(cursor: &mut Cursor<&[u8]>) -> Result<Uvl> {
     // Stored as i16, scaled by << 5 for U/V, << 1 for L
-    let u_raw = read_i16(cursor)?;
-    let v_raw = read_i16(cursor)?;
-    let l_raw = read_u16(cursor)?;
+    let u_raw = cursor.read_i16_le()?;
+    let v_raw = cursor.read_i16_le()?;
+    let l_raw = cursor.read_u16_le()?;
 
-    Ok(UVL {
-        u: Fix((u_raw as i32) << 5),
-        v: Fix((v_raw as i32) << 5),
-        l: Fix((l_raw as i32) << 1),
+    Ok(Uvl {
+        u: Fix::from((u_raw as i32) << 5),
+        v: Fix::from((v_raw as i32) << 5),
+        l: Fix::from((l_raw as i32) << 1),
     })
 }
 
@@ -459,21 +379,21 @@ impl Level {
         };
 
         // Read header
-        let compiled_version = read_u8(&mut cursor)?;
+        let compiled_version = cursor.read_u8()?;
         if compiled_version != COMPILED_MINE_VERSION {
             // Not an error, just informational
         }
 
         let vertex_count = if new_file_format {
-            read_u16(&mut cursor)? as usize
+            cursor.read_u16_le()? as usize
         } else {
-            read_i32(&mut cursor)? as usize
+            cursor.read_i32_le()? as usize
         };
 
         let segment_count = if new_file_format {
-            read_u16(&mut cursor)? as usize
+            cursor.read_u16_le()? as usize
         } else {
-            read_i32(&mut cursor)? as usize
+            cursor.read_i32_le()? as usize
         };
 
         // Read vertices
@@ -513,7 +433,7 @@ impl Level {
 
         // Read flags byte
         let flags = if new_file_format {
-            read_u8(cursor)?
+            cursor.read_u8()?
         } else {
             0x7F // All flags set
         };
@@ -525,7 +445,7 @@ impl Level {
         // Read children
         for i in 0..SEGMENT_SIDE_COUNT {
             segment.children[i] = if (flags & (1 << i)) != 0 {
-                read_i16(cursor)?
+                cursor.read_i16_le()?
             } else {
                 -1
             };
@@ -533,7 +453,7 @@ impl Level {
 
         // Read vertices
         for i in 0..SEGMENT_VERTEX_COUNT {
-            let vertex_idx = read_u16(cursor)?;
+            let vertex_idx = cursor.read_u16_le()?;
             if vertex_idx as usize >= vertex_count {
                 return Err(AssetError::InvalidLevelFormat(format!(
                     "Vertex index {} out of range (max {})",
@@ -545,7 +465,7 @@ impl Level {
 
         // Read wall flags
         let wall_flags = if new_file_format {
-            read_u8(cursor)?
+            cursor.read_u8()?
         } else {
             0x3F // All sides have walls
         };
@@ -554,7 +474,7 @@ impl Level {
         for i in 0..SEGMENT_SIDE_COUNT {
             segment.sides[i].wall_num = if (wall_flags & (1 << i)) != 0 {
                 // TODO: Check version for u8 vs u16
-                read_u16(cursor)?
+                cursor.read_u16_le()?
             } else {
                 0xFFFF
             };
@@ -598,9 +518,9 @@ impl Level {
 
         // Read base texture
         let base_tex_raw = if new_file_format {
-            read_u16(cursor)?
+            cursor.read_u16_le()?
         } else {
-            read_i16(cursor)? as u16
+            cursor.read_i16_le()? as u16
         };
 
         side.base_texture = base_tex_raw & 0x7FFF;
@@ -614,7 +534,7 @@ impl Level {
 
         if has_overlay {
             // Read overlay texture
-            let ovl_tex_raw = read_i16(cursor)?;
+            let ovl_tex_raw = cursor.read_i16_le()?;
             side.overlay_texture = (ovl_tex_raw as u16) & TEXTURE_ID_MASK;
             side.overlay_orient = ((ovl_tex_raw >> 14) & 3) as u8;
         } else {
@@ -641,19 +561,19 @@ impl Level {
         version: u8,
     ) -> Result<()> {
         // Read function as raw u8
-        let function_raw = read_u8(cursor)?;
+        let function_raw = cursor.read_u8()?;
 
         // Read obj_producer and value
         if version < 24 {
-            segment.obj_producer = read_u8(cursor)? as i16;
-            segment.value = read_i8(cursor)? as i16;
+            segment.obj_producer = cursor.read_u8()? as i16;
+            segment.value = cursor.read_i8()? as i16;
         } else {
-            segment.obj_producer = read_i16(cursor)?;
-            segment.value = read_i16(cursor)?;
+            segment.obj_producer = cursor.read_i16_le()?;
+            segment.value = cursor.read_i16_le()?;
         }
 
         // Read flags (unused but must be read)
-        let _flags = read_u8(cursor)?;
+        let _flags = cursor.read_u8()?;
 
         // Read props and damage
         if version <= 20 {
@@ -661,15 +581,15 @@ impl Level {
             let (new_function, props) = upgrade_segment_type(function_raw);
             segment.function = new_function;
             segment.props = props;
-            segment.damage = [Fix(0), Fix(0)];
+            segment.damage = [Fix::ZERO, Fix::ZERO];
         } else {
             // New format: explicit props and damage
             segment.function = function_raw.into();
-            segment.props = SegmentProps::from_bits_truncate(read_u8(cursor)?);
-            let damage0 = read_i16(cursor)?;
-            let damage1 = read_i16(cursor)?;
-            segment.damage[0] = Fix(damage0 as i32 * I2X_MULTIPLIER);
-            segment.damage[1] = Fix(damage1 as i32 * I2X_MULTIPLIER);
+            segment.props = SegmentProps::from_bits_truncate(cursor.read_u8()?);
+            let damage0 = cursor.read_i16_le()?;
+            let damage1 = cursor.read_i16_le()?;
+            segment.damage[0] = Fix::from(damage0 as i32 * I2X_MULTIPLIER);
+            segment.damage[1] = Fix::from(damage1 as i32 * I2X_MULTIPLIER);
         }
 
         // Read average segment light
@@ -690,7 +610,8 @@ mod tests {
     #[test]
     fn test_fix_conversion() {
         let fix = Fix::from(1.0);
-        assert_eq!(fix.0, I2X_MULTIPLIER);
+        let raw: i32 = fix.into();
+        assert_eq!(raw, I2X_MULTIPLIER);
         let f: f32 = fix.into();
         assert_eq!(f, 1.0);
 
@@ -698,9 +619,11 @@ mod tests {
         let f: f32 = fix.into();
         assert!((f - 2.5).abs() < 0.0001);
 
-        // Test From trait both ways
-        let f: f32 = fix.into();
-        assert!((f - 2.5).abs() < 0.0001);
+        // Test roundtrip conversion
+        let original = 2.5_f32;
+        let fix = Fix::from(original);
+        let result: f32 = fix.into();
+        assert!((result - original).abs() < 0.0001);
     }
 
     #[test]

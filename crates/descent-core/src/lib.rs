@@ -69,8 +69,11 @@
 
 pub mod dhf;
 pub mod error;
+pub mod fixed_point;
+pub mod geometry;
 pub mod ham;
 pub mod hog2;
+pub mod io;
 pub mod level;
 pub mod mission;
 pub mod models;
@@ -80,11 +83,15 @@ pub mod pig;
 pub mod player;
 pub mod pof;
 pub mod sound;
+pub mod validation;
 
 pub use dhf::{DhfArchive, DhfEntry};
 pub use error::{AssetError, Result};
+pub use fixed_point::Fix;
+pub use geometry::{FixVector, Uvl};
 pub use ham::{HamFile, RobotInfo, WeaponInfo};
 pub use hog2::{Hog2Archive, Hog2Entry};
+pub use io::ReadExt;
 pub use level::{Level, Segment, Side};
 pub use mission::{MissionFile, SecretLevel};
 pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
@@ -94,7 +101,7 @@ pub use player::{
     PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
 };
 pub use pof::{
-    FixVector, FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap,
-    SubmodelCall, TexturedPolygon, Uvl,
+    FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap, SubmodelCall,
+    TexturedPolygon,
 };
 pub use sound::{HmpFile, HmpTrack, SoundData, SoundHeader};

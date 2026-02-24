@@ -34,49 +34,10 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use std::io::{Cursor, Read, Seek, SeekFrom};
-
-/// Fixed-point value (16.16 format).
-/// Convert to float: `value as f32 / 65536.0`
-pub type Fix = i32;
-
-/// 3D vector with fixed-point coordinates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FixVector {
-    pub x: Fix,
-    pub y: Fix,
-    pub z: Fix,
-}
-
-impl FixVector {
-    /// Convert fixed-point vector to floating-point.
-    pub fn to_f32(self) -> [f32; 3] {
-        [
-            self.x as f32 / 65536.0,
-            self.y as f32 / 65536.0,
-            self.z as f32 / 65536.0,
-        ]
-    }
-}
-
-/// UV coordinates and light value for texture-mapped polygons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Uvl {
-    pub u: Fix,
-    pub v: Fix,
-    pub l: Fix,
-}
-
-impl Uvl {
-    /// Convert to floating-point UV coordinates (light value is also normalized).
-    pub fn to_f32(self) -> [f32; 3] {
-        [
-            self.u as f32 / 65536.0,
-            self.v as f32 / 65536.0,
-            self.l as f32 / 65536.0,
-        ]
-    }
-}
+use crate::fixed_point::Fix;
+use crate::geometry::{FixVector, Uvl};
+use crate::io::ReadExt;
+use std::io::{Cursor, Seek, SeekFrom};
 
 /// POF opcode enumeration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,7 +169,7 @@ impl<'a> PofParser<'a> {
     /// Main opcode parsing loop.
     fn parse_opcodes(&mut self) -> Result<()> {
         loop {
-            let opcode_value = self.read_u16()?;
+            let opcode_value = self.cursor.read_u16_le()?;
             let opcode = Opcode::from_u16(opcode_value)?;
 
             match opcode {
@@ -229,7 +190,7 @@ impl<'a> PofParser<'a> {
     /// Parse OP_DEFPOINTS: Define vertex positions.
     /// Structure: [opcode:u16][count:u16][points:FixVector×n]
     fn parse_defpoints(&mut self) -> Result<()> {
-        let count = self.read_u16()? as usize;
+        let count = self.cursor.read_u16_le()? as usize;
         for _ in 0..count {
             let vertex = self.read_fixvector()?;
             self.model.vertices.push(vertex);
@@ -241,19 +202,19 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][nverts:u16][center:vec][normal:vec][color:u16][verts:u16×n]
     /// Size: 30 + ((n|1))×2 bytes
     fn parse_flatpoly(&mut self) -> Result<()> {
-        let nverts = self.read_u16()? as usize;
+        let nverts = self.cursor.read_u16_le()? as usize;
         let center = self.read_fixvector()?;
         let normal = self.read_fixvector()?;
-        let color = self.read_u16()?;
+        let color = self.cursor.read_u16_le()?;
 
         let mut vertices = Vec::with_capacity(nverts);
         for _ in 0..nverts {
-            vertices.push(self.read_u16()?);
+            vertices.push(self.cursor.read_u16_le()?);
         }
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
-            let _padding = self.read_u16()?;
+            let _padding = self.cursor.read_u16_le()?;
         }
 
         self.model.polygons.push(Polygon::Flat(FlatPolygon {
@@ -270,19 +231,19 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][nverts:u16][center:vec][normal:vec][texture:u16][verts:u16×n][uvls:Uvl×n]
     /// Size: 30 + ((n|1))×2 + n×12 bytes
     fn parse_tmappoly(&mut self) -> Result<()> {
-        let nverts = self.read_u16()? as usize;
+        let nverts = self.cursor.read_u16_le()? as usize;
         let center = self.read_fixvector()?;
         let normal = self.read_fixvector()?;
-        let texture_id = self.read_u16()?;
+        let texture_id = self.cursor.read_u16_le()?;
 
         let mut vertices = Vec::with_capacity(nverts);
         for _ in 0..nverts {
-            vertices.push(self.read_u16()?);
+            vertices.push(self.cursor.read_u16_le()?);
         }
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
-            let _padding = self.read_u16()?;
+            let _padding = self.cursor.read_u16_le()?;
         }
 
         let mut uvls = Vec::with_capacity(nverts);
@@ -308,11 +269,11 @@ impl<'a> PofParser<'a> {
     /// SORTNORM creates a BSP tree for proper front-to-back polygon sorting.
     /// The front_offset and back_offset point to child nodes in the opcode stream.
     fn parse_sortnorm(&mut self) -> Result<()> {
-        let _unused = self.read_u16()?;
+        let _unused = self.cursor.read_u16_le()?;
         let _point = self.read_fixvector()?;
         let _normal = self.read_fixvector()?;
-        let front_offset = self.read_u16()?;
-        let back_offset = self.read_u16()?;
+        let front_offset = self.cursor.read_u16_le()?;
+        let back_offset = self.cursor.read_u16_le()?;
 
         // Save current position
         let current_pos = self.cursor.position();
@@ -339,7 +300,7 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][texture:u16][bot_point:vec][bot_width:fix][top_point:vec][top_width:fix]
     /// Size: 36 bytes
     fn parse_rodbm(&mut self) -> Result<()> {
-        let texture_id = self.read_u16()?;
+        let texture_id = self.cursor.read_u16_le()?;
         let bot_point = self.read_fixvector()?;
         let bot_width = self.read_fix()?;
         let top_point = self.read_fixvector()?;
@@ -360,9 +321,9 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][submodel:u16][offset:vec][data_offset:u16]
     /// Size: 20 bytes
     fn parse_subcall(&mut self) -> Result<()> {
-        let submodel_num = self.read_u16()?;
+        let submodel_num = self.cursor.read_u16_le()?;
         let offset = self.read_fixvector()?;
-        let data_offset = self.read_u16()?;
+        let data_offset = self.cursor.read_u16_le()?;
 
         self.model.submodel_calls.push(SubmodelCall {
             submodel_num,
@@ -389,15 +350,13 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][count:u16][start:u16][unused:u16][points:FixVector×n]
     /// Size: 8 + n×12 bytes
     fn parse_defpstart(&mut self) -> Result<()> {
-        let count = self.read_u16()? as usize;
-        let start = self.read_u16()? as usize;
-        let _unused = self.read_u16()?;
+        let count = self.cursor.read_u16_le()? as usize;
+        let start = self.cursor.read_u16_le()? as usize;
+        let _unused = self.cursor.read_u16_le()?;
 
         // Ensure vertices vector is large enough
         if self.model.vertices.len() < start + count {
-            self.model
-                .vertices
-                .resize(start + count, FixVector { x: 0, y: 0, z: 0 });
+            self.model.vertices.resize(start + count, FixVector::ZERO);
         }
 
         for i in 0..count {
@@ -411,23 +370,15 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][glow_num:u16]
     /// Size: 4 bytes
     fn parse_glow(&mut self) -> Result<()> {
-        let glow_num = self.read_u16()?;
+        let glow_num = self.cursor.read_u16_le()?;
         self.model.glow_points.push(GlowPoint { glow_num });
         Ok(())
     }
 
     // ===== Binary reading helpers =====
 
-    fn read_u16(&mut self) -> Result<u16> {
-        let mut buf = [0u8; 2];
-        self.cursor.read_exact(&mut buf)?;
-        Ok(u16::from_le_bytes(buf))
-    }
-
     fn read_fix(&mut self) -> Result<Fix> {
-        let mut buf = [0u8; 4];
-        self.cursor.read_exact(&mut buf)?;
-        Ok(i32::from_le_bytes(buf))
+        Ok(Fix::from(self.cursor.read_i32_le()?))
     }
 
     fn read_fixvector(&mut self) -> Result<FixVector> {
@@ -473,9 +424,9 @@ mod tests {
     #[test]
     fn test_fixvector_to_f32() {
         let v = FixVector {
-            x: 65536,  // 1.0
-            y: 32768,  // 0.5
-            z: -65536, // -1.0
+            x: Fix::from(65536_i32),  // 1.0
+            y: Fix::from(32768_i32),  // 0.5
+            z: Fix::from(-65536_i32), // -1.0
         };
         let f = v.to_f32();
         assert!((f[0] - 1.0).abs() < 0.0001);
@@ -486,9 +437,9 @@ mod tests {
     #[test]
     fn test_uvl_to_f32() {
         let uvl = Uvl {
-            u: 65536,  // 1.0
-            v: 32768,  // 0.5
-            l: 131072, // 2.0
+            u: Fix::from(65536_i32),  // 1.0
+            v: Fix::from(32768_i32),  // 0.5
+            l: Fix::from(131072_i32), // 2.0
         };
         let f = uvl.to_f32();
         assert!((f[0] - 1.0).abs() < 0.0001);
