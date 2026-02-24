@@ -1,23 +1,35 @@
 //! # D2X Assets
 //!
-//! Asset extraction and parsing library for Descent 1 and 2 game files.
+//! Asset extraction and parsing library for Descent 1, 2, and 3 game files.
 //!
-//! This crate provides parsers for all Descent data file formats:
-//! - **HOG**: Archive files containing game assets
-//! - **PIG**: Texture and bitmap data
+//! This crate provides parsers for Descent data file formats across all three games:
+//!
+//! ## Descent 1 & 2 (1995-1996) - Parallax Engine
+//! - **DHF**: Archive files containing game assets (DHF format)
+//! - **PIG**: Texture and bitmap data (RLE compressed, 8-bit indexed)
 //! - **HAM**: Game data definitions (robots, weapons, physics)
-//! - **Palette**: Color palettes for indexed bitmaps
-//! - **RDL/RL2**: Level geometry and metadata
-//! - **POF/OOF/ASE**: 3D model formats
+//! - **Palette**: Color palettes for indexed bitmaps (6-bit RGB)
+//! - **RDL/RL2**: Level geometry and metadata (segment-based)
+//! - **POF**: 3D polygon models
 //! - **Sound**: Audio samples and music
 //!
-//! ## Example
+//! ## Descent 3 (1999) - Outrage Engine
+//! - **HOG2**: Archive format (enhanced version)
+//! - **D3L**: Level files (room-based with portals)
+//! - **OGF**: Outrage Graphics Format (textures with modern features)
+//! - **OOF**: Outrage Object Format (3D models with animations)
+//! - **OSF**: Outrage Sound Format
+//! - **GAM**: Game data tables (replaces HAM)
+//! - **OSIRIS**: Scripting system (DLL-based)
+//! - **MN3**: Mission definition files
+//!
+//! ## Example - Descent 1/2
 //!
 //! ```ignore
-//! use d2x_assets::{HogArchive, PigFile, Palette};
+//! use d2x_assets::{DhfArchive, PigFile, Palette};
 //!
-//! // Open HOG archive
-//! let hog = HogArchive::open("descent2.hog")?;
+//! // Open DHF archive (Descent 1/2)
+//! let mut hog = DhfArchive::open("descent2.hog")?;
 //!
 //! // Load palette
 //! let palette_data = std::fs::read("groupa.256")?;
@@ -35,19 +47,38 @@
 //!     bitmap.header.height as usize
 //! )?;
 //! ```
+//!
+//! ## Example - Descent 3
+//!
+//! ```ignore
+//! use d2x_assets::Hog2Archive;
+//!
+//! // Open HOG2 archive (Descent 3)
+//! let mut hog = Hog2Archive::open("d3.hog")?;
+//!
+//! // List all files
+//! for entry in hog.entries() {
+//!     println!("{} - {} bytes", entry.name, entry.size);
+//! }
+//!
+//! // Extract a level file
+//! let level_data = hog.read_file("level1.d3l")?;
+//! ```
 
+pub mod dhf;
 pub mod error;
 pub mod ham;
-pub mod hog;
+pub mod hog2;
 pub mod level;
 pub mod models;
 pub mod palette;
 pub mod pig;
 pub mod sound;
 
+pub use dhf::{DhfArchive, DhfEntry};
 pub use error::{AssetError, Result};
 pub use ham::{HamFile, RobotInfo, WeaponInfo};
-pub use hog::{HogArchive, HogEntry};
+pub use hog2::{Hog2Archive, Hog2Entry};
 pub use level::{Level, Segment, Side};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};

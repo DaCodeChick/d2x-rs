@@ -1,11 +1,11 @@
 [package]
 name = "d2x-assets"
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Asset extraction and parsing for Descent 1 and 2 game files"
+description = "Asset extraction and parsing for Descent 1, 2, and 3 game files"
 
 [dependencies]
 # Serialization
@@ -33,6 +33,7 @@ bitflags = "2.6"
 tracing = { workspace = true }
 
 [dev-dependencies]
+tempfile = "3.15"
 # criterion = "0.5"
 
 # [[bench]]
@@ -45,6 +46,7 @@ default = []
 # Game versions
 base-d1 = []
 base-d2 = ["base-d1"]
+base-d3 = []
 
 # Extended limits (D2X-XL)
 extended-limits = []

@@ -12,6 +12,10 @@ pub enum AssetError {
     #[error("Invalid HOG signature")]
     InvalidHogSignature,
 
+    /// Invalid file format
+    #[error("Invalid format: {0}")]
+    InvalidFormat(String),
+
     /// File not found in HOG archive
     #[error("File not found in archive: {0}")]
     FileNotFound(String),
