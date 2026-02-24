@@ -4,39 +4,44 @@
 [![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)](https://www.rust-lang.org/)
 [![Bevy](https://img.shields.io/badge/bevy-0.18-purple.svg)](https://bevyengine.org/)
 
-A complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edition using the Bevy 0.18 game engine. This project reimplements the original low-level C code from D2X-XL into Bevy's modern, high-level ECS architecture.
+A complete rewrite of the Descent 1, 2, and 3 game engines in Rust 2024 edition using the Bevy 0.18 game engine. This project reimplements the original low-level C code from D2X-XL and the Outrage Engine into Bevy's modern, high-level ECS architecture.
 
 ## Project Status
 
-🚧 **Phase 1: Asset Parsers** - Active Development
+🚧 **Phase 1: Asset Parsers** - Active Development (Multi-Game Support)
 
-Currently implementing asset parsing foundation with comprehensive documentation and idiomatic Rust code.
+Currently implementing asset parsing foundation with comprehensive documentation and idiomatic Rust code. Now adding Descent 3 format support alongside D1/D2.
 
 ### Current Progress
 
 **✅ Completed:**
 - [x] Complete architecture documentation
 - [x] Cargo workspace structure (Rust 2024 edition, GPL-3.0)
-- [x] Asset parsing crate foundation
+- [x] Asset parsing crate foundation with GameVersion enum
 - [x] Engine crate structure
 - [x] Client application skeleton
-- [x] HOG archive format parser
+- [x] HOG archive format parser (D1/D2 DHF format)
+- [x] HOG2 archive format parser (D3 format with 36-char filenames)
 - [x] PIG texture format parser (with RLE decompression)
 - [x] HAM game data parser (textures, robots, weapons)
 - [x] Palette handling (6-bit to 8-bit RGB conversion)
-- [x] Level geometry parser (RDL/RL2 format)
-- [x] Comprehensive format documentation (HOG, PIG, HAM, LEVEL)
-- [x] Unit tests (26 tests passing)
+- [x] Level geometry parser (RDL/RL2 format for D1/D2)
+- [x] Comprehensive format documentation (HOG/HOG2, PIG, HAM, LEVEL, D3 overview)
+- [x] Unit tests (35 tests passing, including HOG2)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
+- [ ] OGF texture format (D3)
+- [ ] D3L level format (D3)
+- [ ] OOF model format (D3)
 - [ ] Additional level format features (D2X-XL extensions)
-- [ ] Sound format parsers
-- [ ] Model format parsers
+- [ ] Sound format parsers (OSF for D3, WAV for all)
+- [ ] Model format parsers (POF for D1/D2)
 
 **📋 Next Up:**
-- [ ] Level rendering (Phase 2)
-- [ ] Physics system (Phase 3)
+- [ ] Complete D3 format support (OGF, D3L, OOF, GAM, MN3)
+- [ ] Level rendering (Phase 2 - multi-game)
+- [ ] Physics system (Phase 3 - game-specific)
 - [ ] Gameplay systems (Phase 4+)
 
 ## Why Rewrite?
@@ -60,12 +65,12 @@ D2X-RS addresses these by:
 
 ### Core Engine
 
-- **Descent 1 & 2 Support**: Full compatibility with original game data files
+- **Descent 1, 2 & 3 Support**: Full compatibility with original game data files from all three games
 - **6DOF Flight**: Complete six degrees of freedom movement
-- **Portal-Based Rendering**: Optimized visibility culling
+- **Portal-Based Rendering**: Optimized visibility culling (segment-based for D1/D2, room-based for D3)
 - **Advanced Physics**: Collision detection, realistic movement
-- **AI System**: Robot behaviors, pathfinding through segment graphs
-- **Weapons**: All primary and secondary weapons from D1/D2
+- **AI System**: Robot behaviors, pathfinding through segment/room graphs
+- **Weapons**: All primary and secondary weapons from D1/D2/D3
 - **Multiplayer**: Modern client-server networking
 
 ### Enhancements (Feature-Gated)
@@ -80,7 +85,7 @@ D2X-RS addresses these by:
 ```
 d2x-rs/
 ├── crates/
-│   ├── d2x-assets/       # Asset extraction (HOG, PIG, HAM, RDL)
+│   ├── d2x-assets/       # Asset extraction (HOG/HOG2, PIG, HAM, RDL/RL2, D3L, OGF, OOF)
 │   ├── d2x-engine/       # Core engine (Bevy ECS systems)
 │   └── d2x-client/       # Game client application
 ├── editor/               # Level editor (C++23/Qt6) - Phase 2
@@ -90,6 +95,9 @@ d2x-rs/
 │   ├── ARCHITECTURE.md  # Detailed architecture design
 │   ├── FEATURES.md      # Feature flag documentation
 │   ├── formats/         # File format specifications
+│   │   ├── HOG_FORMAT.md    # D1/D2 (DHF) and D3 (HOG2)
+│   │   ├── D3_FORMATS.md    # D3 format overview
+│   │   └── ...
 │   └── networking/      # Networking architecture
 └── README.md
 ```
@@ -142,11 +150,16 @@ cargo test --package d2x-assets
 Build with different feature sets:
 
 ```bash
-# Note: Feature flag system is designed but not yet implemented
+# Note: Feature flag system is designed but not yet fully utilized
 # Current build includes all asset parsers
 
-# Future feature examples:
-# cargo build --release --no-default-features --features base-d2
+# Feature examples:
+cargo build --release --features base-d1          # D1 support only
+cargo build --release --features base-d2          # D1+D2 support
+cargo build --release --features base-d3          # D3 support only
+cargo build --release --features base-d2,base-d3  # All games
+
+# Future enhanced features:
 # cargo build --release --features enhanced-graphics,hdr-rendering
 # cargo build --release --features d2x-xl
 ```
@@ -169,11 +182,12 @@ Comprehensive documentation is available in the `docs/` directory:
   - Gameplay modifications
   - Platform-specific features
 
-- **File Format Specifications** (✅ Complete):
-  - **[formats/HOG_FORMAT.md](docs/formats/HOG_FORMAT.md)**: HOG archive format
-  - **[formats/PIG_FORMAT.md](docs/formats/PIG_FORMAT.md)**: PIG texture format
-  - **[formats/HAM_FORMAT.md](docs/formats/HAM_FORMAT.md)**: HAM game data format
-  - **[formats/LEVEL_FORMAT.md](docs/formats/LEVEL_FORMAT.md)**: RDL/RL2 level format
+- **File Format Specifications** (✅ D1/D2 Complete, 🚧 D3 In Progress):
+  - **[formats/HOG_FORMAT.md](docs/formats/HOG_FORMAT.md)**: HOG/HOG2 archive format (D1/D2/D3)
+  - **[formats/D3_FORMATS.md](docs/formats/D3_FORMATS.md)**: Descent 3 formats overview
+  - **[formats/PIG_FORMAT.md](docs/formats/PIG_FORMAT.md)**: PIG texture format (D1/D2)
+  - **[formats/HAM_FORMAT.md](docs/formats/HAM_FORMAT.md)**: HAM game data format (D1/D2)
+  - **[formats/LEVEL_FORMAT.md](docs/formats/LEVEL_FORMAT.md)**: RDL/RL2 level format (D1/D2)
 
 - **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design (planned)
   - Client-server architecture
@@ -185,41 +199,56 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ### Phase 1: Asset Foundation (Months 1-2) - 🚧 IN PROGRESS
 
-**✅ Completed:**
-- [x] HOG archive parser with comprehensive tests
+**✅ D1/D2 Completed:**
+- [x] HOG archive parser (DHF format) with comprehensive tests
 - [x] PIG texture extraction with RLE decompression
 - [x] HAM game data parser (textures, robots, weapons, sounds)
 - [x] Level geometry loader (RDL/RL2 format)
 - [x] Palette handling (6-bit to 8-bit conversion)
 - [x] Fixed-point math support (16.16 format)
-- [x] Unit tests with 26 tests passing
-- [x] Format documentation (562+ lines)
+- [x] Unit tests with 35 tests passing
+- [x] Format documentation (1000+ lines across multiple files)
 
-**🚧 Remaining:**
+**✅ D3 Initial Support:**
+- [x] HOG2 archive parser with 36-char filenames
+- [x] GameVersion detection (D1/D2/D3)
+- [x] D3 formats overview documentation
+- [x] HOG2 unit tests
+
+**🚧 D3 Remaining:**
+- [ ] OGF texture format (Outrage Graphics)
+- [ ] D3L level format (room-based geometry)
+- [ ] OOF model format (Outrage Object)
+- [ ] OSF sound format (Outrage Sound)
+- [ ] GAM game data tables
+- [ ] MN3 mission files
+
+**📋 D1/D2 Remaining:**
 - [ ] Sound format parsers (SNDs, HMP/MIDI)
 - [ ] 3D model format parsers (POF)
-- [ ] Mission file parser (.MSN)
+- [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Savegame format parser
-- [ ] Integration tests with real D1/D2 game files
+- [ ] Integration tests with real game files
 
 ### Phase 2: Level Rendering (Month 3) - 📋 PLANNED
-- [ ] Segment mesh generation from level geometry
+- [ ] Segment mesh generation from D1/D2 level geometry
+- [ ] Room mesh generation from D3 level geometry
 - [ ] Basic camera and free-flight controls
-- [ ] Texture rendering with PIG textures
-- [ ] Portal culling system
+- [ ] Texture rendering (PIG for D1/D2, OGF for D3)
+- [ ] Portal culling system (segment-based and room-based)
 - [ ] Basic lighting
 
 ### Phase 3: Physics (Month 4) - 📋 PLANNED
 - [ ] 6DOF physics system (six degrees of freedom)
-- [ ] Collision detection with level geometry
+- [ ] Collision detection with level geometry (game-specific)
 - [ ] Wall collision and sliding
 - [ ] Player ship controls and movement
 
 ### Phase 4: Objects & Gameplay (Months 5-6)
 - [ ] Player object
-- [ ] Robot objects
+- [ ] Robot objects (D1/D2) and enemies (D3)
 - [ ] Powerups
-- [ ] Basic weapons
+- [ ] Basic weapons (game-specific)
 - [ ] HUD display
 
 ### Phase 5: AI & Combat (Months 7-8)

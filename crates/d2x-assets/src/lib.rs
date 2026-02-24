@@ -1,29 +1,42 @@
 //! # D2X Assets
 //!
-//! Asset extraction and parsing library for Descent 1 and 2 game files.
+//! Asset extraction and parsing library for Descent 1, 2, and 3 game files.
 //!
-//! This crate provides parsers for all Descent data file formats:
+//! This crate provides parsers for Descent data file formats across all three games:
+//!
+//! ## Descent 1 & 2 (1995-1996) - Parallax Engine
 //! - **HOG**: Archive files containing game assets
-//! - **PIG**: Texture and bitmap data
+//! - **PIG**: Texture and bitmap data (RLE compressed, 8-bit indexed)
 //! - **HAM**: Game data definitions (robots, weapons, physics)
-//! - **Palette**: Color palettes for indexed bitmaps
-//! - **RDL/RL2**: Level geometry and metadata
-//! - **POF/OOF/ASE**: 3D model formats
+//! - **Palette**: Color palettes for indexed bitmaps (6-bit RGB)
+//! - **RDL/RL2**: Level geometry and metadata (segment-based)
+//! - **POF**: 3D polygon models
 //! - **Sound**: Audio samples and music
+//!
+//! ## Descent 3 (1999) - Outrage Engine
+//! - **HOG2**: Archive format (enhanced version)
+//! - **D3L**: Level files (room-based with portals)
+//! - **OGF**: Outrage Graphics Format (textures with modern features)
+//! - **OOF**: Outrage Object Format (3D models with animations)
+//! - **OSF**: Outrage Sound Format
+//! - **GAM**: Game data tables (replaces HAM)
+//! - **OSIRIS**: Scripting system (DLL-based)
+//! - **MN3**: Mission definition files
 //!
 //! ## Example
 //!
 //! ```ignore
-//! use d2x_assets::{HogArchive, PigFile, Palette};
+//! use d2x_assets::{HogArchive, PigFile, Palette, GameVersion};
 //!
-//! // Open HOG archive
+//! // Open HOG archive (auto-detects D1/D2/D3)
 //! let hog = HogArchive::open("descent2.hog")?;
+//! println!("Detected: {}", hog.game_version());
 //!
-//! // Load palette
+//! // Load palette (D1/D2 only)
 //! let palette_data = std::fs::read("groupa.256")?;
 //! let palette = Palette::parse(&palette_data)?;
 //!
-//! // Extract and parse PIG file
+//! // Extract and parse PIG file (D1/D2 only)
 //! let pig_data = hog.read_file("groupa.pig")?;
 //! let pig = PigFile::parse(&pig_data)?;
 //!
@@ -36,6 +49,7 @@
 //! )?;
 //! ```
 
+pub mod common;
 pub mod error;
 pub mod ham;
 pub mod hog;
@@ -45,6 +59,7 @@ pub mod palette;
 pub mod pig;
 pub mod sound;
 
+pub use common::GameVersion;
 pub use error::{AssetError, Result};
 pub use ham::{HamFile, RobotInfo, WeaponInfo};
 pub use hog::{HogArchive, HogEntry};

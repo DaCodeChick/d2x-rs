@@ -2,11 +2,15 @@
 
 ## Overview
 
-HOG files are simple archive formats used by Descent to package game assets. They provide no compression, only concatenation of files with a directory structure.
+HOG files are archive formats used by Descent games to package game assets. They provide no compression, only concatenation of files with a directory structure.
 
-**Corresponds to**: `include/hogfile.h`, `io/hogfile.cpp`
+There are two versions:
+- **DHF format** - Used by Descent 1 and 2
+- **HOG2 format** - Used by Descent 3
 
-## File Structure
+## DHF Format (Descent 1 & 2)
+
+### File Structure
 
 ```
 +-------------------+
@@ -24,7 +28,7 @@ HOG files are simple archive formats used by Descent to package game assets. The
 +-------------------+
 ```
 
-## Header
+### Header
 
 ```rust
 // No formal header in most HOG files
@@ -32,11 +36,11 @@ HOG files are simple archive formats used by Descent to package game assets. The
 const HOG_SIGNATURE: &[u8; 3] = b"DHF";
 ```
 
-## Entry Format
+### Entry Format
 
 Each entry consists of:
 
-### Filename (13 bytes)
+#### Filename (13 bytes)
 - Null-terminated string
 - Maximum 12 characters + null terminator
 - If name is shorter, remaining bytes are 0x00
@@ -47,15 +51,15 @@ struct HogFilename {
 }
 ```
 
-### Size (4 bytes, little-endian)
+#### Size (4 bytes, little-endian)
 ```rust
 size: u32  // little-endian, file size in bytes
 ```
 
-### Data (variable length)
+#### Data (variable length)
 Raw file data, `size` bytes
 
-## Example Entry
+### Example Entry
 
 ```
 Filename: "LEVEL01.RDL\0"  (13 bytes)
@@ -63,9 +67,178 @@ Size:     0x00012A40       (4 bytes) = 76,352 bytes
 Data:     [76,352 bytes of level data]
 ```
 
+## HOG2 Format (Descent 3)
+
+Descent 3 uses an enhanced HOG format called HOG2 with structured headers and larger filename support.
+
+### File Structure
+
+```
++---------------------------+
+| Header (12 bytes)         |
+|  - Signature "HOG2" (4)   |
+|  - File Count (4)         |
+|  - Data Offset (4)        |
++---------------------------+
+| Entry 1 (48 bytes)        |
+|  - Filename (36)          |
+|  - Flags (4)              |
+|  - Size (4)               |
+|  - Timestamp (4)          |
++---------------------------+
+| Entry 2 (48 bytes)        |
+|  ...                      |
++---------------------------+
+| Entry N (48 bytes)        |
++---------------------------+
+| [Padding to data_offset]  |
++---------------------------+
+| File 1 Data               |
++---------------------------+
+| File 2 Data               |
++---------------------------+
+| File N Data               |
++---------------------------+
+```
+
+### Header (12 bytes)
+
+```rust
+struct Hog2Header {
+    signature: [u8; 4],  // "HOG2"
+    file_count: u32,     // Number of files (little-endian)
+    data_offset: u32,    // Offset to start of file data (little-endian)
+}
+```
+
+- **Signature**: Must be exactly `b"HOG2"` (0x48 0x4F 0x47 0x32)
+- **File Count**: Total number of files in the archive
+- **Data Offset**: Byte offset from start of file to where file data begins
+  - Typically `12 + (file_count * 48)` but may have padding
+
+### Entry Format (48 bytes)
+
+```rust
+struct Hog2Entry {
+    filename: [u8; 36],  // Null-terminated filename
+    flags: u32,          // File flags (little-endian)
+    size: u32,           // File size in bytes (little-endian)
+    timestamp: u32,      // Unix timestamp (little-endian)
+}
+```
+
+#### Filename (36 bytes)
+- Null-terminated string
+- Maximum 35 characters + null terminator
+- Significantly longer than DHF's 13-byte limit
+- Allows for more descriptive filenames
+- If name is shorter, remaining bytes are 0x00
+
+#### Flags (4 bytes)
+- Purpose not fully documented
+- Typically 0x00000000 in standard files
+- May be used for compression or other features in some implementations
+
+#### Size (4 bytes)
+- File size in bytes (little-endian)
+- Size of the file data that follows in the data section
+
+#### Timestamp (4 bytes)
+- Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
+- File modification time
+- Used for version tracking and freshness checks
+
+### Example Entry
+
+```
+Filename: "levels/level1.d3l\0" + padding  (36 bytes)
+Flags:    0x00000000                       (4 bytes)
+Size:     0x00015840                       (4 bytes) = 88,128 bytes
+Timestamp: 0x3B9ACA00                      (4 bytes) = 1,000,000,000 (Sep 2001)
+```
+
+### Parsing Algorithm for HOG2
+
+```rust
+pub fn parse_hog2<R: Read + Seek>(mut reader: R) -> Result<HogArchive, HogError> {
+    // Read signature
+    let mut sig = [0u8; 4];
+    reader.read_exact(&mut sig)?;
+    if &sig != b"HOG2" {
+        return Err(HogError::InvalidSignature);
+    }
+    
+    // Read header
+    let mut buf = [0u8; 4];
+    reader.read_exact(&mut buf)?;
+    let file_count = u32::from_le_bytes(buf);
+    
+    reader.read_exact(&mut buf)?;
+    let data_offset = u32::from_le_bytes(buf);
+    
+    // Read entries
+    let mut entries = BTreeMap::new();
+    let mut current_data_offset = data_offset as u64;
+    
+    for _ in 0..file_count {
+        // Read filename (36 bytes)
+        let mut name_bytes = [0u8; 36];
+        reader.read_exact(&mut name_bytes)?;
+        let name_len = name_bytes.iter().position(|&b| b == 0).unwrap_or(36);
+        let name = String::from_utf8_lossy(&name_bytes[..name_len]).to_uppercase();
+        
+        // Read flags, size, timestamp
+        reader.read_exact(&mut buf)?;
+        let flags = u32::from_le_bytes(buf);
+        
+        reader.read_exact(&mut buf)?;
+        let size = u32::from_le_bytes(buf);
+        
+        reader.read_exact(&mut buf)?;
+        let timestamp = u32::from_le_bytes(buf);
+        
+        entries.insert(name.clone(), HogEntry {
+            name,
+            offset: current_data_offset,
+            size,
+            flags,
+            timestamp,
+        });
+        
+        current_data_offset += size as u64;
+    }
+    
+    Ok(HogArchive { entries })
+}
+```
+
+## Known HOG Files
+
+### Descent 1 (DHF)
+- `descent.hog` (~5 MB) - Retail version
+- `descent.sow` - Shareware version
+- Size detection for versioning
+
+### Descent 2 (DHF)
+- `descent2.hog` (~6 MB) - Base game
+- `descent2.ham` - Game data definitions
+- `alien1.pig`, `alien2.pig`, `fire.pig`, `ice.pig`, `water.pig` - Texture sets
+- `groupa.pig` - Common textures
+
+### Descent 3 (HOG2)
+- `d3.hog` - Main game data
+- `extra.hog` - Additional content
+- `extra1.hog` through `extra13.hog` - Mission packs
+- Custom mission HOGs
+
+### Custom Missions
+- `*.mn2` - D2 mission HOG files
+- `*.mn3` - D3 mission HOG files
+- May contain custom levels, briefings, textures
+
 ## HOG Types in D2X-XL
 
-D2X-XL organizes HOG files into categories:
+D2X-XL organizes DHF HOG files into categories:
 
 ### D1HogFiles
 - `descent.hog` - Descent 1 data
@@ -91,23 +264,26 @@ D2X-XL organizes HOG files into categories:
 - Mission-specific HOG files
 - Custom levels and assets
 
-## Parsing Algorithm
+## Parsing Algorithm (DHF)
 
 ```rust
 use std::io::{Read, Seek, SeekFrom};
 
 pub struct HogArchive {
     entries: BTreeMap<String, HogEntry>,
+    game_version: GameVersion,
 }
 
 pub struct HogEntry {
     name: String,
     offset: u64,
     size: u32,
+    flags: u32,      // HOG2 only
+    timestamp: u32,  // HOG2 only
 }
 
 impl HogArchive {
-    pub fn parse<R: Read + Seek>(mut reader: R) -> Result<Self, HogError> {
+    pub fn parse_dhf<R: Read + Seek>(mut reader: R) -> Result<Self, HogError> {
         let mut entries = BTreeMap::new();
         let mut current_offset = 0u64;
         
@@ -143,10 +319,12 @@ impl HogArchive {
             current_offset += 17; // 13 + 4
             
             // Store entry
-            entries.insert(name, HogEntry {
-                name: name.clone(),
+            entries.insert(name.clone(), HogEntry {
+                name,
                 offset: current_offset,
                 size,
+                flags: 0,
+                timestamp: 0,
             });
             
             // Skip file data
@@ -154,15 +332,10 @@ impl HogArchive {
             current_offset += size as u64;
         }
         
-        Ok(HogArchive { entries })
-    }
-    
-    pub fn read_file(&self, name: &str) -> Result<Vec<u8>, HogError> {
-        let entry = self.entries.get(&name.to_uppercase())
-            .ok_or(HogError::FileNotFound)?;
-        
-        // Seek and read file data
-        // ...
+        Ok(HogArchive { 
+            entries,
+            game_version: GameVersion::Descent2,
+        })
     }
 }
 ```
@@ -266,13 +439,29 @@ mod tests {
 }
 ```
 
+## Format Comparison
+
+| Feature | DHF (D1/D2) | HOG2 (D3) |
+|---------|-------------|-----------|
+| **Signature** | Optional "DHF" | Required "HOG2" |
+| **Header Size** | 0-3 bytes | 12 bytes |
+| **Entry Size** | 17 bytes + data | 48 bytes (header), data separate |
+| **Filename Length** | 13 bytes (12 chars + null) | 36 bytes (35 chars + null) |
+| **File Count** | None (scan until EOF) | In header |
+| **Data Organization** | Inline with entries | Separate data section |
+| **Flags** | None | 4-byte flags field |
+| **Timestamp** | None | Unix timestamp |
+| **Data Offset** | None | In header |
+| **Binary Search** | External (D2X-XL) | Header supports |
+
 ## References
 
-- D2X-XL: `/tmp/d2x-xl-src/include/hogfile.h`
-- D2X-XL: `/tmp/d2x-xl-src/io/hogfile.cpp`
+- D2X-XL HOG (D1/D2): `/tmp/d2x-xl-src/include/hogfile.h`, `/tmp/d2x-xl-src/io/hogfile.cpp`
+- Descent 3 SDK: Outrage Engine documentation
 - Descent Technical Specs: https://www.descent-community.org/
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2026-02-23
+**Document Version**: 2.0  
+**Last Updated**: 2026-02-24
+**Changes**: Added HOG2 (Descent 3) format specification
