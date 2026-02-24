@@ -28,7 +28,8 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] Level geometry parser (RDL/RL2 format for D1/D2)
 - [x] OGF texture format parser (D3 with RGB565/RGBA4444/RGBA8888 support)
 - [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, OGF, D3 overview)
-- [x] Unit tests (42 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 22 others)
+- [x] POF model format parser (D1/D2 polygon models with 9 opcodes)
+- [x] Unit tests (53 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
@@ -36,7 +37,6 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [ ] OOF model format (D3)
 - [ ] Additional level format features (D2X-XL extensions)
 - [ ] Sound format parsers (OSF for D3, WAV for all)
-- [ ] Model format parsers (POF for D1/D2)
 
 **📋 Next Up:**
 - [ ] Complete D3 format support (OGF, D3L, OOF, GAM, MN3)
@@ -85,7 +85,7 @@ D2X-RS addresses these by:
 ```
 d2x-rs/
 ├── crates/
-│   ├── d2x-assets/       # Asset extraction (HOG/HOG2, PIG, HAM, RDL/RL2, D3L, OGF, OOF)
+│   ├── d2x-assets/       # Asset extraction (HOG/HOG2, PIG, HAM, POF, RDL/RL2, D3L, OGF, OOF)
 │   ├── d2x-engine/       # Core engine (Bevy ECS systems)
 │   └── d2x-client/       # Game client application
 ├── editor/               # Level editor (C++23/Qt6) - Phase 2
@@ -215,9 +215,10 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] Split architecture: dhf.rs (D1/D2) and hog2.rs (D3)
 - [x] D3 formats overview documentation
 - [x] 7 comprehensive HOG2 unit tests
+- [x] OGF texture format parser (RGB565/RGBA4444/RGBA8888 support)
+- [x] 7 comprehensive OGF unit tests with bit-accurate color conversion
 
 **🚧 D3 Remaining:**
-- [ ] OGF texture format (Outrage Graphics)
 - [ ] D3L level format (room-based geometry)
 - [ ] OOF model format (Outrage Object)
 - [ ] OSF sound format (Outrage Sound)
@@ -226,7 +227,6 @@ Comprehensive documentation is available in the `docs/` directory:
 
 **📋 D1/D2 Remaining:**
 - [ ] Sound format parsers (SNDs, HMP/MIDI)
-- [ ] 3D model format parsers (POF)
 - [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Savegame format parser
 - [ ] Integration tests with real game files

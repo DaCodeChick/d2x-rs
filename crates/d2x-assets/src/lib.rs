@@ -74,6 +74,7 @@ pub mod models;
 pub mod ogf;
 pub mod palette;
 pub mod pig;
+pub mod pof;
 pub mod sound;
 
 pub use dhf::{DhfArchive, DhfEntry};
@@ -84,3 +85,7 @@ pub use level::{Level, Segment, Side};
 pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
+pub use pof::{
+    FixVector, FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap,
+    SubmodelCall, TexturedPolygon, Uvl,
+};
