@@ -1,30 +1,43 @@
 # D2X-RS: Descent Engine Rewrite in Rust
 
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Bevy](https://img.shields.io/badge/bevy-0.14-purple.svg)](https://bevyengine.org/)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)](https://www.rust-lang.org/)
+[![Bevy](https://img.shields.io/badge/bevy-0.18-purple.svg)](https://bevyengine.org/)
 
 A complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edition using the Bevy 0.18 game engine. This project reimplements the original low-level C code from D2X-XL into Bevy's modern, high-level ECS architecture.
 
 ## Project Status
 
-🚧 **Early Development** - Foundation and documentation phase
+🚧 **Phase 1: Asset Parsers** - Active Development
 
-This project is currently in its initial planning and architecture phase. The comprehensive documentation is complete, and the basic project structure has been established.
+Currently implementing asset parsing foundation with comprehensive documentation and idiomatic Rust code.
 
 ### Current Progress
 
+**✅ Completed:**
 - [x] Complete architecture documentation
-- [x] Cargo workspace structure
-- [x] Asset parsing crate foundation (HOG file format)
+- [x] Cargo workspace structure (Rust 2024 edition, GPL-3.0)
+- [x] Asset parsing crate foundation
 - [x] Engine crate structure
 - [x] Client application skeleton
-- [x] Feature flag design
-- [x] Network architecture design
-- [ ] Asset parsers (PIG, HAM, RDL)
-- [ ] Level rendering
-- [ ] Physics system
-- [ ] Gameplay systems
+- [x] HOG archive format parser
+- [x] PIG texture format parser (with RLE decompression)
+- [x] HAM game data parser (textures, robots, weapons)
+- [x] Palette handling (6-bit to 8-bit RGB conversion)
+- [x] Level geometry parser (RDL/RL2 format)
+- [x] Comprehensive format documentation (HOG, PIG, HAM, LEVEL)
+- [x] Unit tests (26 tests passing)
+- [x] Idiomatic Rust refactoring (traits, bitflags, enums)
+
+**🚧 In Progress:**
+- [ ] Additional level format features (D2X-XL extensions)
+- [ ] Sound format parsers
+- [ ] Model format parsers
+
+**📋 Next Up:**
+- [ ] Level rendering (Phase 2)
+- [ ] Physics system (Phase 3)
+- [ ] Gameplay systems (Phase 4+)
 
 ## Why Rewrite?
 
@@ -85,7 +98,7 @@ d2x-rs/
 
 ### Prerequisites
 
-- Rust 1.75 or later
+- **Rust 2024 edition** (rustc 1.82+)
 - Cargo
 - Descent 1 or 2 game files (for testing)
 
@@ -99,8 +112,29 @@ cd d2x-rs
 # Build all crates
 cargo build --release
 
-# Run the client (currently minimal)
+# Run tests
+cargo test
+
+# Run clippy
+cargo clippy -- -D warnings
+
+# Run the client (currently minimal, asset parsing only)
 cargo run --bin d2x-client
+```
+
+### Development Build
+
+The project uses optimized development builds for faster iteration:
+
+```bash
+# Development build with deps optimized
+cargo build
+
+# Run tests with output
+cargo test -- --nocapture
+
+# Run specific crate tests
+cargo test --package d2x-assets
 ```
 
 ### Feature Flags
@@ -108,20 +142,16 @@ cargo run --bin d2x-client
 Build with different feature sets:
 
 ```bash
-# Minimal build (D1/D2 only)
-cargo build --release --no-default-features --features base-d2
+# Note: Feature flag system is designed but not yet implemented
+# Current build includes all asset parsers
 
-# Enhanced graphics
-cargo build --release --features enhanced-graphics,hdr-rendering
-
-# D2X-XL full experience
-cargo build --release --features d2x-xl
-
-# Custom combination
-cargo build --release --features "base-d2,pbr-materials,lan-discovery"
+# Future feature examples:
+# cargo build --release --no-default-features --features base-d2
+# cargo build --release --features enhanced-graphics,hdr-rendering
+# cargo build --release --features d2x-xl
 ```
 
-See [docs/FEATURES.md](docs/FEATURES.md) for complete feature documentation.
+See [docs/FEATURES.md](docs/FEATURES.md) for planned feature documentation.
 
 ## Documentation
 
@@ -133,18 +163,19 @@ Comprehensive documentation is available in the `docs/` directory:
   - ECS component design
   - Bevy integration patterns
 
-- **[FEATURES.md](docs/FEATURES.md)**: Feature flag system
+- **[FEATURES.md](docs/FEATURES.md)**: Feature flag system (planned)
   - Feature combinations and presets
   - Graphics quality tiers
   - Gameplay modifications
   - Platform-specific features
 
-- **[formats/HOG_FORMAT.md](docs/formats/HOG_FORMAT.md)**: HOG archive format
-  - File structure specification
-  - Parsing algorithms
-  - Performance considerations
+- **File Format Specifications** (✅ Complete):
+  - **[formats/HOG_FORMAT.md](docs/formats/HOG_FORMAT.md)**: HOG archive format
+  - **[formats/PIG_FORMAT.md](docs/formats/PIG_FORMAT.md)**: PIG texture format
+  - **[formats/HAM_FORMAT.md](docs/formats/HAM_FORMAT.md)**: HAM game data format
+  - **[formats/LEVEL_FORMAT.md](docs/formats/LEVEL_FORMAT.md)**: RDL/RL2 level format
 
-- **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design
+- **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design (planned)
   - Client-server architecture
   - Prediction and reconciliation
   - LAN discovery
@@ -152,24 +183,37 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Roadmap
 
-### Phase 1: Asset Foundation (Months 1-2)
-- [ ] Complete HOG archive parser
-- [ ] Implement PIG texture extraction
-- [ ] HAM game data parser
-- [ ] Level geometry loader (RDL/RL2)
-- [ ] Unit tests with real D1/D2 files
+### Phase 1: Asset Foundation (Months 1-2) - 🚧 IN PROGRESS
 
-### Phase 2: Level Rendering (Month 3)
-- [ ] Segment mesh generation
-- [ ] Basic camera and free-flight
-- [ ] Texture rendering
-- [ ] Portal culling
+**✅ Completed:**
+- [x] HOG archive parser with comprehensive tests
+- [x] PIG texture extraction with RLE decompression
+- [x] HAM game data parser (textures, robots, weapons, sounds)
+- [x] Level geometry loader (RDL/RL2 format)
+- [x] Palette handling (6-bit to 8-bit conversion)
+- [x] Fixed-point math support (16.16 format)
+- [x] Unit tests with 26 tests passing
+- [x] Format documentation (562+ lines)
 
-### Phase 3: Physics (Month 4)
-- [ ] 6DOF physics system
-- [ ] Collision detection
-- [ ] Wall collision
-- [ ] Player ship controls
+**🚧 Remaining:**
+- [ ] Sound format parsers (SNDs, HMP/MIDI)
+- [ ] 3D model format parsers (POF)
+- [ ] Mission file parser (.MSN)
+- [ ] Savegame format parser
+- [ ] Integration tests with real D1/D2 game files
+
+### Phase 2: Level Rendering (Month 3) - 📋 PLANNED
+- [ ] Segment mesh generation from level geometry
+- [ ] Basic camera and free-flight controls
+- [ ] Texture rendering with PIG textures
+- [ ] Portal culling system
+- [ ] Basic lighting
+
+### Phase 3: Physics (Month 4) - 📋 PLANNED
+- [ ] 6DOF physics system (six degrees of freedom)
+- [ ] Collision detection with level geometry
+- [ ] Wall collision and sliding
+- [ ] Player ship controls and movement
 
 ### Phase 4: Objects & Gameplay (Months 5-6)
 - [ ] Player object
@@ -219,20 +263,41 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines (coming soon) before submitting PRs.
+Contributions are welcome! This project follows the **RDSS** development policy:
 
-### Code Organization
+### RDSS Policy: Refactor, Despaghettify, Simplify, Split
 
-- **d2x-assets**: Pure Rust, no game logic dependencies
-- **d2x-engine**: Bevy plugins and systems
-- **d2x-client**: Application-level code
+When porting code from D2X-XL:
+
+1. **Refactor**: Use idiomatic Rust patterns
+   - Prefer `const fn` where possible
+   - Use `Result<T, E>` with `?` operator
+   - Never `unwrap()` in production code
+   - Use traits (`From`, `Into`) instead of manual conversion methods
+
+2. **Despaghettify**: Break down complex logic
+   - Replace deep nesting with early returns
+   - Extract helper functions
+   - Use enums and pattern matching
+
+3. **Simplify**: Focus on clarity
+   - Document formats, not C code translations
+   - Use descriptive variable names
+   - Remove unnecessary complexity
+
+4. **Split**: Modular organization
+   - Separate concerns into modules
+   - Keep files under ~1000 lines
+   - Use `bitflags` crate for flag types
 
 ### Code Style
 
-- Follow Rust standard conventions
-- Document all public APIs
+- Follow Rust 2024 edition conventions
+- Run `cargo fmt` and `cargo clippy -- -D warnings`
+- Document all public APIs with rustdoc
 - Include references to original D2X-XL code locations
-- Write tests for parsing code
+- Write comprehensive tests for parsing code
+- Document file formats with examples and diagrams
 
 ## Original Source Reference
 
@@ -244,16 +309,17 @@ This rewrite is based on D2X-XL version 1.18.77, with references to:
 
 ### License Note
 
-This project respects the Parallax Software license terms from the original Descent source code release. The Rust rewrite is licensed under MIT/Apache-2.0.
+This project is licensed under GPL-3.0 to comply with the D2X-XL source code license terms. The original Descent source code is covered by the Parallax Software license.
 
 ## Requirements
 
 ### To Build
-- Rust toolchain 1.75+
-- ~4GB disk space for dependencies
+- Rust toolchain 1.82+ (Rust 2024 edition)
+- Cargo
+- ~2GB disk space for dependencies
 
-### To Play
-- Original Descent 1 or 2 game files (descent.hog, descent2.hog, etc.)
+### To Run Tests
+- Original Descent 1 or 2 game files (optional, for integration tests)
 - Available legally from:
   - [GOG.com](https://www.gog.com/game/descent)
   - [Steam](https://store.steampowered.com/app/273570/Descent/)
@@ -261,7 +327,7 @@ This project respects the Parallax Software license terms from the original Desc
 ### System Requirements (Target)
 - **CPU**: Dual-core 2GHz+
 - **RAM**: 4GB+
-- **GPU**: OpenGL 4.5 or Vulkan support
+- **GPU**: OpenGL 4.5 or Vulkan support (planned)
 - **OS**: Windows, Linux, macOS
 
 ## Acknowledgments
@@ -286,15 +352,11 @@ This project respects the Parallax Software license terms from the original Desc
 
 ## License
 
-This project is dual-licensed under:
-
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-
-at your option.
+This project is licensed under **GPL-3.0** ([LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html)
 
 The original Descent source code is covered by the Parallax Software license.
+This rewrite is based on D2X-XL version 1.18.77, which is GPL-licensed.
 
 ---
 
-**Status**: Early Development | **Version**: 0.1.0 | **Last Updated**: 2026-02-23
+**Status**: Phase 1 - Asset Parsers (Active Development) | **Version**: 0.1.0 | **Last Updated**: 2026-02-23
