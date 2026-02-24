@@ -66,7 +66,27 @@
 //! // Extract a level file
 //! let level_data = hog.read_file("level1.d3l")?;
 //! ```
+//!
+//! ## Example - Converting Textures
+//!
+//! ```ignore
+//! use descent_core::{PigFile, Palette};
+//! use descent_core::converters::texture::{TextureConverter, ImageFormat};
+//!
+//! // Load PIG file and palette
+//! let pig_data = std::fs::read("descent2.pig")?;
+//! let pig = PigFile::parse(pig_data, false)?;
+//!
+//! let palette_data = std::fs::read("groupa.256")?;
+//! let palette = Palette::parse(&palette_data)?;
+//!
+//! // Convert texture to PNG
+//! let converter = TextureConverter::new(&palette);
+//! let png = converter.pig_to_png(&pig, "wall01-0")?;
+//! std::fs::write("wall01-0.png", png)?;
+//! ```
 
+pub mod converters;
 pub mod dhf;
 pub mod error;
 pub mod fixed_point;
@@ -98,7 +118,7 @@ pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{
-    PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
+    CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION, PlayerProfile, PlrProfile, PlxProfile,
 };
 pub use pof::{
     FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap, SubmodelCall,

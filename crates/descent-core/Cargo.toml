@@ -23,7 +23,7 @@ winnow = { workspace = true }
 glam = { workspace = true }
 
 # Image processing
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 
 # Utilities
 once_cell = { workspace = true }

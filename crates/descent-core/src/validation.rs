@@ -284,10 +284,12 @@ mod tests {
     fn test_validate_signature_failure() {
         let result = validate_signature(0x12345678, 0x21474F48, "HOG");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid HOG signature"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid HOG signature")
+        );
     }
 
     #[test]
@@ -299,10 +301,12 @@ mod tests {
     fn test_validate_string_signature_failure() {
         let result = validate_string_signature("INVALID", "HMIMIDIP", "HMP");
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Invalid HMP signature"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid HMP signature")
+        );
     }
 
     // Range validation tests
@@ -379,10 +383,12 @@ mod tests {
     fn test_validate_buffer_size_failure() {
         let result = validate_buffer_size(95, 100, 10);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Unexpected end of data"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Unexpected end of data")
+        );
     }
 
     #[test]
