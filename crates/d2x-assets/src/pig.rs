@@ -8,8 +8,6 @@
 //! - Bitmap count: 4 bytes
 //! - Bitmap headers: N * 17 bytes
 //! - Bitmap data: RLE-compressed pixel data
-//!
-//! Corresponds to: `include/piggy.h`, `gameio/piggy.cpp`, `2d/rle.cpp`
 
 use crate::error::{AssetError, Result};
 use std::collections::HashMap;

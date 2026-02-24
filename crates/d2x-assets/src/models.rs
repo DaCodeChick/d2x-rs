@@ -1,6 +1,4 @@
 //! 3D model file format parsers (POF/OOF/ASE)
-//!
-//! Corresponds to: `include/pof.h`, `include/oof.h`, `include/ase.h`
 
 use crate::error::Result;
 

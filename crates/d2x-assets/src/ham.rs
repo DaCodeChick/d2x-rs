@@ -14,15 +14,6 @@
 //! # Format Documentation
 //!
 //! See `docs/formats/HAM_FORMAT.md` for complete specification.
-//!
-//! # Reference Implementation
-//!
-//! D2X-XL v1.18.77:
-//! - `include/piggy.h` - Constants and structures
-//! - `include/loadgamedata.h` - Data structure definitions  
-//! - `gameio/piggy.cpp:430` - ReadHamFile function
-//! - `gameio/loadgamedata.cpp:276` - BMReadAll function
-//!
 //! # Examples
 //!
 //! ```no_run

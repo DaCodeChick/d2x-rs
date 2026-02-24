@@ -13,8 +13,6 @@
 //! - Optional function (reactor, fuel center, etc.)
 //!
 //! See `docs/formats/LEVEL_FORMAT.md` for complete format specification.
-//!
-//! Corresponds to: `include/segment.h`, `include/loadgeometry.h`, `gameio/loadgeometry.cpp`
 
 use crate::error::{AssetError, Result};
 use bitflags::bitflags;
@@ -257,10 +255,10 @@ impl Default for Side {
 /// Segment (cube room)
 #[derive(Debug, Clone)]
 pub struct Segment {
-    /// Multiplayer team owner (-1 = none, D2X-XL only)
+    /// Multiplayer team owner (-1 = none, extended format)
     pub owner: i8,
 
-    /// Editor grouping (-1 = none, D2X-XL only)
+    /// Editor grouping (-1 = none, extended format)
     pub group: i8,
 
     /// Vertex indices (8 corners of the cube)
@@ -510,7 +508,7 @@ impl Level {
         new_file_format: bool,
         vertex_count: usize,
     ) -> Result<Segment> {
-        // Note: owner and group default to -1 (D2X-XL only, not implemented yet)
+        // Note: owner and group default to -1 (extended format, not implemented yet)
         let mut segment = Segment::default();
 
         // Read flags byte

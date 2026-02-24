@@ -2,10 +2,6 @@
 //!
 //! HOG files are simple archive formats used by Descent to package game assets.
 //!
-//! ## Corresponds to D2X-XL Code
-//! - `include/hogfile.h`: CHogFile class
-//! - `io/hogfile.cpp`: CHogFile implementation
-//!
 //! ## File Format
 //! ```text
 //! [Optional Header: "DHF" + 0x00]

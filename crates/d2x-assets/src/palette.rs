@@ -14,12 +14,6 @@
 //!
 //! See `docs/formats/HAM_FORMAT.md` (Palette Files section) for complete specification.
 //!
-//! # Reference Implementation
-//!
-//! D2X-XL v1.18.77:
-//! - `include/palette.h` - CPalette class
-//! - `2d/palette.cpp` - Palette loading and conversion
-//!
 //! # Examples
 //!
 //! ```no_run

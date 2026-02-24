@@ -1,6 +1,4 @@
 //! Sound and music file format parsers
-//!
-//! Corresponds to: `include/audio.h`, `audio/digi.cpp`
 
 use crate::error::Result;
 

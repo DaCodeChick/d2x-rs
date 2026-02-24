@@ -11,14 +11,6 @@
 //! - **POF/OOF/ASE**: 3D model formats
 //! - **Sound**: Audio samples and music
 //!
-//! ## Corresponds to D2X-XL Code
-//!
-//! - `include/hogfile.h`, `io/hogfile.cpp`
-//! - `include/piggy.h`, `2d/piggy.cpp`, `2d/bitmap.cpp`
-//! - `include/loadgamedata.h`, `main/loadgamedata.cpp`
-//! - `include/palette.h`, `2d/palette.cpp`
-//! - `include/segment.h`, `main/loadgeometry.cpp`
-//!
 //! ## Example
 //!
 //! ```ignore
