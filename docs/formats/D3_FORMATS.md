@@ -9,7 +9,7 @@ Descent 3 uses the **Outrage Engine**, which introduced significantly different 
 | Format | Extension | Purpose | Status |
 |--------|-----------|---------|--------|
 | **HOG2** | `.hog` | Archive container | ✅ Implemented |
-| **OGF** | `.ogf` | Outrage Graphics (textures) | 📋 Planned |
+| **OGF** | `.ogf` | Outrage Graphics (textures) | ✅ Implemented |
 | **D3L** | `.d3l` | Level geometry | 📋 Planned |
 | **OOF** | `.oof` | Outrage Object (models) | 📋 Planned |
 | **OSF** | `.osf` | Outrage Sound | 📋 Planned |
@@ -35,61 +35,39 @@ HOG2 is the enhanced archive format for D3, featuring:
 
 ## Texture Format: OGF
 
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
-**Outrage Graphics Format** - D3's proprietary texture format.
+**See**: [OGF_FORMAT.md](OGF_FORMAT.md)
+
+**Outrage Graphics Format** - D3's proprietary texture format with true color support.
 
 ### Key Features
-- Multiple sizes: 32×32, 64×64, 128×128, 256×256
-- Color formats: RGB (16-bit), RGBA (16/32-bit), 4444
-- Maximum 3,100 textures per game
-- Animation support (frame sequences)
-- Procedural textures (fire, water, plasma)
-- Bumpmapping and lightmap support
+- Multiple pixel formats: RGB565, RGBA4444, RGBA8888, Indexed8
+- Texture sizes: 32×32, 64×64, 128×128, 256×256
+- Mipmap support for level-of-detail rendering
+- Animation support with frame sequences and FPS control
+- 21 texture property flags (water, lava, metal, alpha, etc.)
+- Conversion to RGBA8 for modern rendering APIs
 
-### Texture Properties (31 flags)
+### Usage Example
 ```rust
-bitflags! {
-    pub struct TextureFlags: u32 {
-        const WATER         = 1 << 0;  // Water surface
-        const LAVA          = 1 << 1;  // Lava/damage surface
-        const METAL         = 1 << 2;  // Metallic surface
-        const ALPHA         = 1 << 3;  // Alpha transparency
-        const ANIMATED      = 1 << 4;  // Animation frames
-        const PROCEDURAL    = 1 << 5;  // Generated at runtime
-        const LIGHT         = 1 << 6;  // Light-emitting
-        const BREAKABLE     = 1 << 7;  // Can be destroyed
-        const TMAP2         = 1 << 8;  // Secondary texture layer
-        const FORCEFIELD    = 1 << 9;  // Force field effect
-        const SATURATE      = 1 << 10; // Saturated colors
-        const SMOOTH        = 1 << 11; // Smooth rendering
-        const BRIGHTNESS    = 1 << 12; // Brightness multiplier
-        const BUMPMAP       = 1 << 13; // Bumpmap texture
-        const FOGGED        = 1 << 14; // Fog effect
-        // ... more flags
-    }
-}
-```
+use d2x_assets::ogf::{OgfTexture, TextureFlags};
 
-### File Structure
-```
-+-------------------------+
-| Header                  |
-|  - Version              |
-|  - Width, Height        |
-|  - Format               |
-|  - Flags                |
-|  - Mipmap count         |
-|  - Animation info       |
-+-------------------------+
-| Pixel Data              |
-|  - Mipmap 0 (full size) |
-|  - Mipmap 1 (1/2 size)  |
-|  - Mipmap 2 (1/4 size)  |
-|  - ...                  |
-+-------------------------+
-| Palette (if indexed)    |
-+-------------------------+
+// Parse OGF texture
+let data = std::fs::read("texture.ogf")?;
+let texture = OgfTexture::parse(&data)?;
+
+// Check properties
+if texture.header.is_animated() {
+    println!("Animated: {} frames at {} fps", 
+        texture.header.num_frames, texture.header.fps);
+}
+
+// Convert to RGBA8 for rendering
+let rgba = texture.to_rgba8()?;
+
+// Access mipmaps
+let mipmap1 = texture.get_mipmap(1)?;
 ```
 
 ## Level Format: D3L

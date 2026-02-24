@@ -26,12 +26,12 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] HAM game data parser (textures, robots, weapons)
 - [x] Palette handling (6-bit to 8-bit RGB conversion)
 - [x] Level geometry parser (RDL/RL2 format for D1/D2)
-- [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, D3 overview)
-- [x] Unit tests (35 tests passing: 6 DHF + 7 HOG2 + 22 others)
+- [x] OGF texture format parser (D3 with RGB565/RGBA4444/RGBA8888 support)
+- [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, OGF, D3 overview)
+- [x] Unit tests (42 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
-- [ ] OGF texture format (D3)
 - [ ] D3L level format (D3)
 - [ ] OOF model format (D3)
 - [ ] Additional level format features (D2X-XL extensions)
