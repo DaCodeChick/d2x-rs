@@ -45,6 +45,10 @@ When working on code in this project, always apply the RDSS policy:
 - **Error Handling**: Use `Result<T, E>` and `?` operator, never `unwrap()` in production code
 - **Memory Safety**: Prefer owned types, use references judiciously, avoid `unsafe` unless absolutely necessary
 - **Zero-cost Abstractions**: Use iterators, closures, and trait objects appropriately
+- **Compile-Time Evaluation**: Always check if functions can be `const fn`
+  - Maximize compile-time computation
+  - Use `const fn` for functions that can be evaluated at compile time
+  - Use `const` for constant values and static data
 - **Documentation**: Write comprehensive doc comments with examples
 - **Testing**: Include unit tests for all public APIs
 
