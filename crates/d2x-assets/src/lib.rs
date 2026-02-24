@@ -36,15 +36,15 @@
 //! ```
 
 pub mod error;
-pub mod hog;
-pub mod pig;
 pub mod ham;
+pub mod hog;
 pub mod level;
 pub mod models;
+pub mod pig;
 pub mod sound;
 
 pub use error::{AssetError, Result};
-pub use hog::{HogArchive, HogEntry};
-pub use pig::{PigFile, BitmapEntry, BitmapData};
 pub use ham::{HamFile, RobotInfo, WeaponInfo};
+pub use hog::{HogArchive, HogEntry};
 pub use level::{Level, Segment, Side};
+pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};

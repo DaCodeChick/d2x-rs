@@ -16,6 +16,10 @@ pub enum AssetError {
     #[error("File not found in archive: {0}")]
     FileNotFound(String),
 
+    /// Asset not found
+    #[error("Asset not found: {0}")]
+    NotFound(String),
+
     /// Invalid PIG file format
     #[error("Invalid PIG file format: {0}")]
     InvalidPigFormat(String),
