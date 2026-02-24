@@ -17,7 +17,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Binary parsing
-nom = { workspace = true }
+winnow = { workspace = true }
 
 # Math
 glam = { workspace = true }

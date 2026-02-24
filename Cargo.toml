@@ -30,7 +30,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # Binary parsing
-nom = "7.1"
+winnow = "0.7"
 
 # Math
 glam = { version = "0.28", features = ["serde"] }

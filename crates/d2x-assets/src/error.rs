@@ -61,8 +61,11 @@ pub enum AssetError {
     Other(String),
 }
 
-impl From<nom::Err<nom::error::Error<&[u8]>>> for AssetError {
-    fn from(err: nom::Err<nom::error::Error<&[u8]>>) -> Self {
-        AssetError::ParseError(format!("{}", err))
+impl<I, E> From<winnow::error::ParseError<I, E>> for AssetError
+where
+    E: std::fmt::Display,
+{
+    fn from(err: winnow::error::ParseError<I, E>) -> Self {
+        AssetError::ParseError(format!("{}", err.inner()))
     }
 }

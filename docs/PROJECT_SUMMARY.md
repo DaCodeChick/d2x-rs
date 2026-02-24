@@ -64,7 +64,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 
 #### Cargo Workspace
 - Root Cargo.toml with workspace configuration
-- Shared dependencies (Bevy, serde, nom, etc.)
+- Shared dependencies (Bevy, serde, winnow, etc.)
 - Optimized build profiles
 
 #### d2x-assets Crate
@@ -87,7 +87,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 - Sound file parser (sound.rs)
 
 **Dependencies**:
-- nom (binary parsing)
+- winnow (binary parsing)
 - image (texture processing)
 - serde (serialization)
 - thiserror (error handling)
@@ -250,10 +250,10 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 ## Technology Stack Finalized
 
 ### Rust Ecosystem
-- **Rust Edition**: 2021 (2024 when stable)
-- **MSRV**: 1.75
+- **Rust Edition**: 2024
+- **MSRV**: None (use latest stable Rust)
 - **Bevy**: 0.14 (will upgrade to 0.18 when released)
-- **Binary Parsing**: nom
+- **Binary Parsing**: winnow 0.7 (modern, zero-copy parser combinators)
 - **Networking**: bevy_renet/renet (when implemented)
 - **UI**: bevy_egui
 - **Error Handling**: thiserror + anyhow
