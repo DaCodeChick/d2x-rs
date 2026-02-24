@@ -30,15 +30,15 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, OGF, D3 overview)
 - [x] POF model format parser (D1/D2 polygon models with 9 opcodes)
 - [x] Sound format parsers (D1/D2: SNDs 8-bit PCM, HMP/MIDI music)
-- [x] Unit tests (63 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 22 others)
+- [x] Mission file parser (D1/D2: .MSN and .MN2 text-based format)
+- [x] Unit tests (76 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 13 Mission + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
-- [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Additional level format features (D2X-XL extensions)
 
 **📋 Next Up (D1/D2 First):**
-- [ ] Complete D1/D2 asset parsers (sound, missions, savegames)
+- [ ] Complete D1/D2 asset parsers (savegames, player files)
 - [ ] Level rendering (Phase 2 - D1/D2 segment-based)
 - [ ] Physics system (Phase 3 - D1/D2)
 - [ ] D3 format support (later - D3L, OOF, OSF, GAM, MN3)
@@ -192,6 +192,7 @@ Comprehensive documentation is available in the `docs/` directory:
   - **[formats/LEVEL_FORMAT.md](docs/formats/LEVEL_FORMAT.md)**: RDL/RL2 level format (D1/D2)
   - **[formats/POF_FORMAT.md](docs/formats/POF_FORMAT.md)**: POF polygon model format (D1/D2)
   - **[formats/SOUND_FORMAT.md](docs/formats/SOUND_FORMAT.md)**: SNDs and HMP audio formats (D1/D2)
+  - **[formats/MISSION_FORMAT.md](docs/formats/MISSION_FORMAT.md)**: MSN/MN2 mission files (D1/D2)
   - **[formats/OGF_FORMAT.md](docs/formats/OGF_FORMAT.md)**: OGF texture format (D3)
 
 - **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design (planned)
@@ -211,13 +212,14 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] Level geometry loader (RDL/RL2 format)
 - [x] POF model parser (ships, robots, powerups) with 9 opcodes
 - [x] Sound format parsers (SNDs 8-bit PCM, HMP/MIDI music)
+- [x] Mission file parser (.MSN/.MN2 text-based format)
 - [x] Palette handling (6-bit to 8-bit conversion)
 - [x] Fixed-point math support (16.16 format)
-- [x] 63 unit tests passing
-- [x] Format documentation (2600+ lines across 8 format files)
+- [x] 76 unit tests passing
+- [x] Format documentation (3200+ lines across 9 format files)
 
 **🚧 D1/D2 Remaining (Priority):**
-- [ ] Mission file parser (.MSN for D1/D2)
+- [ ] Savegame format parser
 - [ ] Savegame format parser
 - [ ] Integration tests with real game files
 
