@@ -29,11 +29,11 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] OGF texture format parser (D3 with RGB565/RGBA4444/RGBA8888 support)
 - [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, OGF, D3 overview)
 - [x] POF model format parser (D1/D2 polygon models with 9 opcodes)
-- [x] Unit tests (53 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 22 others)
+- [x] Sound format parsers (D1/D2: SNDs 8-bit PCM, HMP/MIDI music)
+- [x] Unit tests (63 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
-- [ ] Sound format parsers (D1/D2: SNDs, HMP/MIDI)
 - [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Additional level format features (D2X-XL extensions)
 
@@ -190,6 +190,9 @@ Comprehensive documentation is available in the `docs/` directory:
   - **[formats/PIG_FORMAT.md](docs/formats/PIG_FORMAT.md)**: PIG texture format (D1/D2)
   - **[formats/HAM_FORMAT.md](docs/formats/HAM_FORMAT.md)**: HAM game data format (D1/D2)
   - **[formats/LEVEL_FORMAT.md](docs/formats/LEVEL_FORMAT.md)**: RDL/RL2 level format (D1/D2)
+  - **[formats/POF_FORMAT.md](docs/formats/POF_FORMAT.md)**: POF polygon model format (D1/D2)
+  - **[formats/SOUND_FORMAT.md](docs/formats/SOUND_FORMAT.md)**: SNDs and HMP audio formats (D1/D2)
+  - **[formats/OGF_FORMAT.md](docs/formats/OGF_FORMAT.md)**: OGF texture format (D3)
 
 - **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design (planned)
   - Client-server architecture
@@ -207,13 +210,13 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] HAM game data parser (textures, robots, weapons, sounds)
 - [x] Level geometry loader (RDL/RL2 format)
 - [x] POF model parser (ships, robots, powerups) with 9 opcodes
+- [x] Sound format parsers (SNDs 8-bit PCM, HMP/MIDI music)
 - [x] Palette handling (6-bit to 8-bit conversion)
 - [x] Fixed-point math support (16.16 format)
-- [x] 53 unit tests passing
-- [x] Format documentation (2000+ lines across multiple files)
+- [x] 63 unit tests passing
+- [x] Format documentation (2600+ lines across 8 format files)
 
 **🚧 D1/D2 Remaining (Priority):**
-- [ ] Sound format parsers (SNDs, HMP/MIDI)
 - [ ] Mission file parser (.MSN for D1/D2)
 - [ ] Savegame format parser
 - [ ] Integration tests with real game files

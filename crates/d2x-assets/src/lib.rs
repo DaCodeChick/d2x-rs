@@ -89,3 +89,4 @@ pub use pof::{
     FixVector, FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap,
     SubmodelCall, TexturedPolygon, Uvl,
 };
+pub use sound::{HmpFile, HmpTrack, SoundData, SoundHeader};
