@@ -255,10 +255,10 @@ impl Default for Side {
 /// Segment (cube room)
 #[derive(Debug, Clone)]
 pub struct Segment {
-    /// Multiplayer team owner (-1 = none, extended format)
+    /// Multiplayer team owner (-1 = none, D2X-XL only)
     pub owner: i8,
 
-    /// Editor grouping (-1 = none, extended format)
+    /// Editor grouping (-1 = none, D2X-XL only)
     pub group: i8,
 
     /// Vertex indices (8 corners of the cube)
@@ -508,7 +508,7 @@ impl Level {
         new_file_format: bool,
         vertex_count: usize,
     ) -> Result<Segment> {
-        // Note: owner and group default to -1 (extended format, not implemented yet)
+        // Note: owner and group default to -1 (D2X-XL only, not implemented yet)
         let mut segment = Segment::default();
 
         // Read flags byte
