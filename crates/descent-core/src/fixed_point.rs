@@ -21,7 +21,7 @@ pub const I2X_MULTIPLIER: i32 = 65536;
 /// let one = Fix::ONE;
 /// let half = Fix::from(0.5);
 /// let result = one + half;
-/// assert!((result.to_f32() - 1.5).abs() < 0.0001);
+/// assert!((f32::from(result) - 1.5).abs() < 0.0001);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Fix(pub i32);

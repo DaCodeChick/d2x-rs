@@ -34,6 +34,7 @@
 //!
 //! // Parse sound header from PIG file
 //! let pig_data = fs::read("descent2.pig").unwrap();
+//! let offset = 0x1000; // Example offset
 //! let header = SoundHeader::parse(&pig_data[offset..]).unwrap();
 //! println!("Sound: {}, {} bytes", header.name, header.data_length);
 //!
@@ -44,7 +45,9 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use crate::io::ReadExt;
+use crate::validation::{validate_min, validate_range};
+use std::io::Cursor;
 
 /// Maximum number of tracks in an HMP file.
 pub const HMP_MAX_TRACKS: usize = 32;
@@ -232,10 +235,8 @@ impl HmpFile {
         let mut cursor = Cursor::new(data);
 
         // Read signature (8 bytes)
-        let mut signature = [0u8; 8];
-        cursor.read_exact(&mut signature)?;
-
-        if &signature != b"HMIMIDIP" {
+        let signature = cursor.read_bytes(8)?;
+        if signature != b"HMIMIDIP" {
             return Err(AssetError::InvalidFormat(format!(
                 "Invalid HMP signature: expected 'HMIMIDIP', got '{}'",
                 String::from_utf8_lossy(&signature)
@@ -243,48 +244,35 @@ impl HmpFile {
         }
 
         // Seek to track count at offset 0x30
-        cursor.seek(SeekFrom::Start(0x30))?;
-        let num_tracks = Self::read_u32(&mut cursor)?;
-
-        if num_tracks == 0 || num_tracks > HMP_MAX_TRACKS as u32 {
-            return Err(AssetError::InvalidFormat(format!(
-                "Invalid HMP track count: {} (must be 1-{})",
-                num_tracks, HMP_MAX_TRACKS
-            )));
-        }
+        cursor.skip_bytes(0x30 - 8)?;
+        let num_tracks = cursor.read_u32_le()?;
+        validate_range(num_tracks, 1, HMP_MAX_TRACKS as u32, "HMP track count")?;
 
         // Seek to MIDI division at offset 0x38
-        cursor.seek(SeekFrom::Start(0x38))?;
-        let midi_division = Self::read_u32(&mut cursor)?;
+        cursor.skip_bytes(0x38 - 0x34)?;
+        let midi_division = cursor.read_u32_le()?;
 
         // Seek to track data at offset 0x308
-        cursor.seek(SeekFrom::Start(0x308))?;
+        cursor.skip_bytes(0x308 - 0x3C)?;
 
         let mut tracks = Vec::with_capacity(num_tracks as usize);
 
         for _ in 0..num_tracks {
             // Skip 4 bytes
-            cursor.seek(SeekFrom::Current(4))?;
+            cursor.skip_bytes(4)?;
 
             // Read track length (includes 12-byte overhead)
-            let track_length = Self::read_u32(&mut cursor)?;
-
-            if track_length < 12 {
-                return Err(AssetError::InvalidFormat(format!(
-                    "Invalid HMP track length: {} (must be >= 12)",
-                    track_length
-                )));
-            }
+            let track_length = cursor.read_u32_le()?;
+            validate_min(track_length, 12, "HMP track length")?;
 
             // Actual data length (minus header overhead)
             let data_length = (track_length - 12) as usize;
 
             // Skip 4 bytes
-            cursor.seek(SeekFrom::Current(4))?;
+            cursor.skip_bytes(4)?;
 
             // Read track data
-            let mut track_data = vec![0u8; data_length];
-            cursor.read_exact(&mut track_data)?;
+            let track_data = cursor.read_bytes(data_length)?;
 
             tracks.push(HmpTrack { data: track_data });
         }
@@ -295,13 +283,6 @@ impl HmpFile {
             tempo: 120, // Default tempo
             tracks,
         })
-    }
-
-    /// Helper to read a little-endian u32.
-    fn read_u32(cursor: &mut Cursor<&[u8]>) -> Result<u32> {
-        let mut buf = [0u8; 4];
-        cursor.read_exact(&mut buf)?;
-        Ok(u32::from_le_bytes(buf))
     }
 
     /// Convert HMP to standard MIDI format (for playback).
@@ -437,7 +418,7 @@ mod tests {
         data[0x308..0x30C].copy_from_slice(&0u32.to_le_bytes()); // skip
         data[0x30C..0x310].copy_from_slice(&50u32.to_le_bytes()); // length (50 bytes total, 38 data)
         data[0x310..0x314].copy_from_slice(&0u32.to_le_bytes()); // skip
-                                                                 // 38 bytes of track data (50 - 12 = 38)
+        // 38 bytes of track data (50 - 12 = 38)
 
         // Track 2 starts after track 1 data (0x314 + 38 = 0x33A)
         let track2_start = 0x314 + 38;

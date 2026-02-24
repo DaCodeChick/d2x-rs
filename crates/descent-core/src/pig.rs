@@ -10,6 +10,8 @@
 //! - Bitmap data: RLE-compressed pixel data
 
 use crate::error::{AssetError, Result};
+use crate::io::ReadExt;
+use crate::validation::{validate_min, validate_signature, validate_version};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 
@@ -250,40 +252,16 @@ impl PigFile {
         let mut cursor = Cursor::new(&data);
 
         // Read and verify signature
-        let mut sig_bytes = [0u8; 4];
-        cursor.read_exact(&mut sig_bytes)?;
-        let signature = u32::from_le_bytes(sig_bytes);
-
-        if signature != PIG_SIGNATURE {
-            return Err(AssetError::InvalidPigFormat(format!(
-                "Invalid PIG signature: expected 0x{:08X}, got 0x{:08X}",
-                PIG_SIGNATURE, signature
-            )));
-        }
+        let signature = cursor.read_u32_le()?;
+        validate_signature(signature, PIG_SIGNATURE, "PIG")?;
 
         // Read and verify version
-        let mut ver_bytes = [0u8; 4];
-        cursor.read_exact(&mut ver_bytes)?;
-        let version = i32::from_le_bytes(ver_bytes);
-
-        if version != PIG_VERSION {
-            return Err(AssetError::InvalidPigFormat(format!(
-                "Unsupported PIG version: expected {}, got {}",
-                PIG_VERSION, version
-            )));
-        }
+        let version = cursor.read_i32_le()?;
+        validate_version(version, &[PIG_VERSION], "PIG")?;
 
         // Read bitmap count
-        let mut count_bytes = [0u8; 4];
-        cursor.read_exact(&mut count_bytes)?;
-        let num_bitmaps = i32::from_le_bytes(count_bytes);
-
-        if num_bitmaps < 0 {
-            return Err(AssetError::InvalidPigFormat(format!(
-                "Invalid bitmap count: {}",
-                num_bitmaps
-            )));
-        }
+        let num_bitmaps = cursor.read_i32_le()?;
+        validate_min(num_bitmaps, 0, "bitmap count")?;
 
         // Calculate data section start
         let data_start = 12 + (num_bitmaps as usize * BITMAP_HEADER_SIZE);

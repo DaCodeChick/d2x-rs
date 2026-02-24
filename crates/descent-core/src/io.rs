@@ -39,7 +39,60 @@ pub trait ReadExt {
     fn skip_bytes(&mut self, count: usize) -> Result<()>;
 }
 
-impl<'a> ReadExt for Cursor<&'a [u8]> {
+impl ReadExt for Cursor<&[u8]> {
+    fn read_u8(&mut self) -> Result<u8> {
+        let mut buf = [0u8; 1];
+        self.read_exact(&mut buf)?;
+        Ok(buf[0])
+    }
+
+    fn read_i8(&mut self) -> Result<i8> {
+        Ok(self.read_u8()? as i8)
+    }
+
+    fn read_u16_le(&mut self) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_le_bytes(buf))
+    }
+
+    fn read_i16_le(&mut self) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(i16::from_le_bytes(buf))
+    }
+
+    fn read_u32_le(&mut self) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(u32::from_le_bytes(buf))
+    }
+
+    fn read_i32_le(&mut self) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(i32::from_le_bytes(buf))
+    }
+
+    fn read_f32_le(&mut self) -> Result<f32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(f32::from_le_bytes(buf))
+    }
+
+    fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; count];
+        self.read_exact(&mut buf)?;
+        Ok(buf)
+    }
+
+    fn skip_bytes(&mut self, count: usize) -> Result<()> {
+        self.seek(SeekFrom::Current(count as i64))?;
+        Ok(())
+    }
+}
+
+impl ReadExt for Cursor<&Vec<u8>> {
     fn read_u8(&mut self) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.read_exact(&mut buf)?;

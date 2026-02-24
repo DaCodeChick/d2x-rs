@@ -30,8 +30,10 @@
 //! # }
 //! ```
 
-use crate::error::{AssetError, Result};
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use crate::error::Result;
+use crate::io::ReadExt;
+use crate::validation::{validate_max, validate_signature, validate_version};
+use std::io::Cursor;
 
 // HAM file constants
 const HAM_SIGNATURE: u32 = 0x48414D21; // "HAM!"
@@ -75,43 +77,28 @@ impl HamFile {
         let mut cursor = Cursor::new(data);
 
         // Parse header
-        let signature = read_u32_le(&mut cursor)?;
-        if signature != HAM_SIGNATURE {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Invalid HAM signature: expected 0x{:08X}, got 0x{:08X}",
-                HAM_SIGNATURE, signature
-            )));
-        }
+        let signature = cursor.read_u32_le()?;
+        validate_signature(signature, HAM_SIGNATURE, "HAM")?;
 
-        let version = read_i32_le(&mut cursor)?;
-        if version != HAM_VERSION_DEMO && version != HAM_VERSION_STANDARD {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Invalid HAM version: expected 2 or 3, got {}",
-                version
-            )));
-        }
+        let version = cursor.read_i32_le()?;
+        validate_version(version, &[HAM_VERSION_DEMO, HAM_VERSION_STANDARD], "HAM")?;
 
         // Read sound offset if version < 3 (we'll skip embedded sounds for now)
         let _sound_offset = if version < HAM_VERSION_STANDARD {
-            Some(read_i32_le(&mut cursor)?)
+            Some(cursor.read_i32_le()?)
         } else {
             None
         };
 
         // Parse texture data
-        let texture_count = read_i32_le(&mut cursor)? as usize;
-        if texture_count > MAX_TEXTURES {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Texture count {} exceeds maximum {}",
-                texture_count, MAX_TEXTURES
-            )));
-        }
+        let texture_count = cursor.read_i32_le()? as usize;
+        validate_max(texture_count, MAX_TEXTURES, "texture count", "MAX_TEXTURES")?;
 
         // Read bitmap indices
         let mut bitmap_indices = Vec::with_capacity(texture_count);
         for _ in 0..texture_count {
             bitmap_indices.push(BitmapIndex {
-                index: read_u16_le(&mut cursor)?,
+                index: cursor.read_u16_le()?,
             });
         }
 
@@ -122,25 +109,15 @@ impl HamFile {
         }
 
         // Parse sound indices
-        let sound_count = read_i32_le(&mut cursor)? as usize;
-        if sound_count > MAX_SOUNDS {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Sound count {} exceeds maximum {}",
-                sound_count, MAX_SOUNDS
-            )));
-        }
+        let sound_count = cursor.read_i32_le()? as usize;
+        validate_max(sound_count, MAX_SOUNDS, "sound count", "MAX_SOUNDS")?;
 
-        let sound_indices = read_bytes(&mut cursor, sound_count)?;
-        let alt_sound_indices = read_bytes(&mut cursor, sound_count)?;
+        let sound_indices = cursor.read_bytes(sound_count)?;
+        let alt_sound_indices = cursor.read_bytes(sound_count)?;
 
         // Parse VClips (animation clips)
-        let vclip_count = read_i32_le(&mut cursor)? as usize;
-        if vclip_count > MAX_VCLIPS {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "VClip count {} exceeds maximum {}",
-                vclip_count, MAX_VCLIPS
-            )));
-        }
+        let vclip_count = cursor.read_i32_le()? as usize;
+        validate_max(vclip_count, MAX_VCLIPS, "VClip count", "MAX_VCLIPS")?;
 
         let mut vclips = Vec::with_capacity(vclip_count);
         for _ in 0..vclip_count {
@@ -148,21 +125,16 @@ impl HamFile {
         }
 
         // Skip effects section for now (would parse tEffectInfo array here)
-        let effect_count = read_i32_le(&mut cursor)? as usize;
-        skip_bytes(&mut cursor, effect_count * 64)?; // Approximate size
+        let effect_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(effect_count * 64)?; // Approximate size
 
         // Skip wall animations (would parse tWallEffect array here)
-        let wall_anim_count = read_i32_le(&mut cursor)? as usize;
-        skip_bytes(&mut cursor, wall_anim_count * 100)?; // Approximate size
+        let wall_anim_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(wall_anim_count * 100)?; // Approximate size
 
         // Parse robots (simplified)
-        let robot_count = read_i32_le(&mut cursor)? as usize;
-        if robot_count > MAX_ROBOTS {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Robot count {} exceeds maximum {}",
-                robot_count, MAX_ROBOTS
-            )));
-        }
+        let robot_count = cursor.read_i32_le()? as usize;
+        validate_max(robot_count, MAX_ROBOTS, "robot count", "MAX_ROBOTS")?;
 
         let mut robots = Vec::with_capacity(robot_count);
         for _ in 0..robot_count {
@@ -170,17 +142,12 @@ impl HamFile {
         }
 
         // Skip robot joints (would parse tJointPos array here)
-        let joint_count = read_i32_le(&mut cursor)? as usize;
-        skip_bytes(&mut cursor, joint_count * 8)?; // tJointPos size
+        let joint_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(joint_count * 8)?; // tJointPos size
 
         // Parse weapons (simplified)
-        let weapon_count = read_i32_le(&mut cursor)? as usize;
-        if weapon_count > MAX_WEAPONS {
-            return Err(AssetError::InvalidHamFormat(format!(
-                "Weapon count {} exceeds maximum {}",
-                weapon_count, MAX_WEAPONS
-            )));
-        }
+        let weapon_count = cursor.read_i32_le()? as usize;
+        validate_max(weapon_count, MAX_WEAPONS, "weapon count", "MAX_WEAPONS")?;
 
         let mut weapons = Vec::with_capacity(weapon_count);
         for _ in 0..weapon_count {
@@ -402,61 +369,6 @@ pub struct WeaponInfo {
 }
 
 // ============================================================================
-// Parser Helper Functions
-// ============================================================================
-
-fn read_u8(cursor: &mut Cursor<&[u8]>) -> Result<u8> {
-    let mut buf = [0u8; 1];
-    cursor.read_exact(&mut buf)?;
-    Ok(buf[0])
-}
-
-fn read_i8(cursor: &mut Cursor<&[u8]>) -> Result<i8> {
-    Ok(read_u8(cursor)? as i8)
-}
-
-fn read_u16_le(cursor: &mut Cursor<&[u8]>) -> Result<u16> {
-    let mut buf = [0u8; 2];
-    cursor.read_exact(&mut buf)?;
-    Ok(u16::from_le_bytes(buf))
-}
-
-fn read_i16_le(cursor: &mut Cursor<&[u8]>) -> Result<i16> {
-    let mut buf = [0u8; 2];
-    cursor.read_exact(&mut buf)?;
-    Ok(i16::from_le_bytes(buf))
-}
-
-fn read_u32_le(cursor: &mut Cursor<&[u8]>) -> Result<u32> {
-    let mut buf = [0u8; 4];
-    cursor.read_exact(&mut buf)?;
-    Ok(u32::from_le_bytes(buf))
-}
-
-fn read_i32_le(cursor: &mut Cursor<&[u8]>) -> Result<i32> {
-    let mut buf = [0u8; 4];
-    cursor.read_exact(&mut buf)?;
-    Ok(i32::from_le_bytes(buf))
-}
-
-fn read_f32_le(cursor: &mut Cursor<&[u8]>) -> Result<f32> {
-    let mut buf = [0u8; 4];
-    cursor.read_exact(&mut buf)?;
-    Ok(f32::from_le_bytes(buf))
-}
-
-fn read_bytes(cursor: &mut Cursor<&[u8]>, count: usize) -> Result<Vec<u8>> {
-    let mut buf = vec![0u8; count];
-    cursor.read_exact(&mut buf)?;
-    Ok(buf)
-}
-
-fn skip_bytes(cursor: &mut Cursor<&[u8]>, count: usize) -> Result<()> {
-    cursor.seek(SeekFrom::Current(count as i64))?;
-    Ok(())
-}
-
-// ============================================================================
 // Structure Parsers
 // ============================================================================
 
@@ -464,14 +376,14 @@ fn parse_texture_info(
     cursor: &mut Cursor<&[u8]>,
     bitmap_index: BitmapIndex,
 ) -> Result<TextureInfo> {
-    let flags = read_u8(cursor)?;
-    skip_bytes(cursor, 3)?; // padding
-    let lighting = read_f32_le(cursor)?;
-    let damage = read_f32_le(cursor)?;
-    let effect_clip = read_i32_le(cursor)?;
-    let destroyed = read_i16_le(cursor)?;
-    let slide_u = read_i16_le(cursor)?;
-    let slide_v = read_i16_le(cursor)?;
+    let flags = cursor.read_u8()?;
+    cursor.skip_bytes(3)?; // padding
+    let lighting = cursor.read_f32_le()?;
+    let damage = cursor.read_f32_le()?;
+    let effect_clip = cursor.read_i32_le()?;
+    let destroyed = cursor.read_i16_le()?;
+    let slide_u = cursor.read_i16_le()?;
+    let slide_v = cursor.read_i16_le()?;
 
     Ok(TextureInfo {
         bitmap_index,
@@ -486,19 +398,19 @@ fn parse_texture_info(
 }
 
 fn parse_vclip_info(cursor: &mut Cursor<&[u8]>) -> Result<VClipInfo> {
-    let total_time = read_f32_le(cursor)?;
-    let num_frames = read_i32_le(cursor)?;
-    let frame_time = read_f32_le(cursor)?;
-    let flags = read_i32_le(cursor)?;
-    let sound_num = read_i16_le(cursor)?;
+    let total_time = cursor.read_f32_le()?;
+    let num_frames = cursor.read_i32_le()?;
+    let frame_time = cursor.read_f32_le()?;
+    let flags = cursor.read_i32_le()?;
+    let sound_num = cursor.read_i16_le()?;
 
     // Read frame indices (30 frames max for D2)
     let mut frame_indices = Vec::with_capacity(30);
     for _ in 0..30 {
-        frame_indices.push(read_i16_le(cursor)?);
+        frame_indices.push(cursor.read_i16_le()?);
     }
 
-    let light_value = read_f32_le(cursor)?;
+    let light_value = cursor.read_f32_le()?;
 
     Ok(VClipInfo {
         total_time,
@@ -512,41 +424,41 @@ fn parse_vclip_info(cursor: &mut Cursor<&[u8]>) -> Result<VClipInfo> {
 }
 
 fn parse_robot_info(cursor: &mut Cursor<&[u8]>) -> Result<RobotInfo> {
-    let model_num = read_i32_le(cursor)?;
+    let model_num = cursor.read_i32_le()?;
 
     // Skip gun points (8 guns * 12 bytes per vector)
-    skip_bytes(cursor, 8 * 12)?;
+    cursor.skip_bytes(8 * 12)?;
 
     // Skip gun submodels
-    skip_bytes(cursor, 8)?;
+    cursor.skip_bytes(8)?;
 
     // Skip explosion info
-    skip_bytes(cursor, 8)?;
+    cursor.skip_bytes(8)?;
 
-    let weapon_type = read_i8(cursor)?;
-    skip_bytes(cursor, 1)?; // weapon_type2
-    let n_guns = read_i8(cursor)?;
+    let weapon_type = cursor.read_i8()?;
+    cursor.skip_bytes(1)?; // weapon_type2
+    let n_guns = cursor.read_i8()?;
 
     // Skip contains info
-    skip_bytes(cursor, 5)?;
+    cursor.skip_bytes(5)?;
 
-    let score_value = read_i16_le(cursor)?;
+    let score_value = cursor.read_i16_le()?;
 
     // Skip badass, energy_drain
-    skip_bytes(cursor, 2)?;
+    cursor.skip_bytes(2)?;
 
     // Read core stats
-    skip_bytes(cursor, 4)?; // lighting
-    let strength = read_f32_le(cursor)?;
-    let mass = read_f32_le(cursor)?;
+    cursor.skip_bytes(4)?; // lighting
+    let strength = cursor.read_f32_le()?;
+    let mass = cursor.read_f32_le()?;
 
     // Skip remaining fields (drag, AI params, sounds, animations, etc.)
-    skip_bytes(cursor, 400)?; // Approximate remaining size
+    cursor.skip_bytes(400)?; // Approximate remaining size
 
-    let boss_flag = read_i8(cursor)?;
+    let boss_flag = cursor.read_i8()?;
 
     // Skip to end of structure
-    skip_bytes(cursor, 20)?;
+    cursor.skip_bytes(20)?;
 
     Ok(RobotInfo {
         model_num,
@@ -561,64 +473,64 @@ fn parse_robot_info(cursor: &mut Cursor<&[u8]>) -> Result<RobotInfo> {
 
 fn parse_weapon_info(cursor: &mut Cursor<&[u8]>, _version: i32) -> Result<WeaponInfo> {
     // Skip render type, persistent
-    skip_bytes(cursor, 2)?;
+    cursor.skip_bytes(2)?;
 
-    let model_num = read_i16_le(cursor)?;
+    let model_num = cursor.read_i16_le()?;
 
     // Skip model_num_inner
-    skip_bytes(cursor, 2)?;
+    cursor.skip_bytes(2)?;
 
-    let flash_vclip = read_i8(cursor)?;
+    let flash_vclip = cursor.read_i8()?;
 
     // Skip robot_hit_vclip
-    skip_bytes(cursor, 1)?;
+    cursor.skip_bytes(1)?;
 
-    let flash_sound = read_i16_le(cursor)?;
+    let flash_sound = cursor.read_i16_le()?;
 
     // Skip wall_hit_vclip, fire_count, robot_hit_sound
-    skip_bytes(cursor, 5)?;
+    cursor.skip_bytes(5)?;
 
-    let ammo_usage = read_u8(cursor)?;
+    let ammo_usage = cursor.read_u8()?;
 
     // Skip weapon_vclip, wall_hit_sound, destroyable, matter, bounce, homing_flag
-    skip_bytes(cursor, 8)?;
+    cursor.skip_bytes(8)?;
 
     // Skip speedvar, flags, flash, afterburner_size, children (version >= 3)
-    skip_bytes(cursor, 5)?;
+    cursor.skip_bytes(5)?;
 
-    let energy_usage = read_f32_le(cursor)?;
-    let fire_wait = read_f32_le(cursor)?;
+    let energy_usage = cursor.read_f32_le()?;
+    let fire_wait = cursor.read_f32_le()?;
 
     // Skip multi_damage_scale, bitmap, blob_size, flash_size, impact_size
-    skip_bytes(cursor, 18)?;
+    cursor.skip_bytes(18)?;
 
     // Read strength array (5 difficulty levels)
     let strength = [
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
     ];
 
     // Read speed array (5 difficulty levels)
     let speed = [
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
-        read_f32_le(cursor)?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
+        cursor.read_f32_le()?,
     ];
 
-    let mass = read_f32_le(cursor)?;
+    let mass = cursor.read_f32_le()?;
 
     // Skip drag, thrust, po_len_to_width_ratio
-    skip_bytes(cursor, 12)?;
+    cursor.skip_bytes(12)?;
 
-    let light = read_f32_le(cursor)?;
+    let light = cursor.read_f32_le()?;
 
     // Skip remaining fields (lifetime, damage_radius, picture, hires_picture)
-    skip_bytes(cursor, 18)?;
+    cursor.skip_bytes(18)?;
 
     Ok(WeaponInfo {
         model_num,
