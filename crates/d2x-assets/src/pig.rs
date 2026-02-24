@@ -46,27 +46,27 @@ impl BitmapFlags {
     /// Large RLE compressed bitmap
     pub const RLE_BIG: u8 = 0x10;
 
-    pub fn new(bits: u8) -> Self {
+    pub const fn new(bits: u8) -> Self {
         Self { bits }
     }
 
-    pub fn is_transparent(self) -> bool {
+    pub const fn is_transparent(self) -> bool {
         (self.bits & Self::TRANSPARENT) != 0
     }
 
-    pub fn is_super_transparent(self) -> bool {
+    pub const fn is_super_transparent(self) -> bool {
         (self.bits & Self::SUPER_TRANSPARENT) != 0
     }
 
-    pub fn no_lighting(self) -> bool {
+    pub const fn no_lighting(self) -> bool {
         (self.bits & Self::NO_LIGHTING) != 0
     }
 
-    pub fn is_rle(self) -> bool {
+    pub const fn is_rle(self) -> bool {
         (self.bits & Self::RLE) != 0
     }
 
-    pub fn is_rle_big(self) -> bool {
+    pub const fn is_rle_big(self) -> bool {
         (self.bits & Self::RLE_BIG) != 0
     }
 }
@@ -92,12 +92,12 @@ pub struct BitmapHeader {
 
 impl BitmapHeader {
     /// Get animation frame number (bits 0-5 of dflags)
-    pub fn frame_number(&self) -> u8 {
+    pub const fn frame_number(&self) -> u8 {
         self.dflags & 0x3F
     }
 
     /// Check if this is an animated bitmap (bit 6 of dflags)
-    pub fn is_animated(&self) -> bool {
+    pub const fn is_animated(&self) -> bool {
         (self.dflags & 0x40) != 0
     }
 
@@ -371,7 +371,7 @@ impl PigFile {
     }
 
     /// Check if this is a Descent 1 PIG file
-    pub fn is_descent1(&self) -> bool {
+    pub const fn is_descent1(&self) -> bool {
         self.is_d1
     }
 }
