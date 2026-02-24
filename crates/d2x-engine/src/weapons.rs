@@ -1,0 +1,1 @@
+//! weapons module stub

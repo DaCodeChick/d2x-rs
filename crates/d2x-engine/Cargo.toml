@@ -1,0 +1,59 @@
+[package]
+name = "d2x-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core game engine for D2X-RS using Bevy ECS"
+
+[dependencies]
+# Asset library
+d2x-assets = { path = "../d2x-assets" }
+
+# Bevy
+bevy = { workspace = true, features = ["bevy_asset", "bevy_scene", "bevy_render", "bevy_core_pipeline", "bevy_pbr", "bevy_gltf", "bevy_audio"] }
+
+# Networking (TODO: Add when implementing multiplayer)
+# bevy_renet = "0.0.14"
+# renet = "0.0.15"
+
+# Serialization
+serde = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Math
+glam = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[features]
+default = ["base-d2"]
+
+# Game versions
+base-d1 = []
+base-d2 = ["base-d1", "d2x-assets/base-d2"]
+
+# Derivative features
+d2x-xl = ["extended-limits", "enhanced-graphics"]
+
+# Extended limits
+extended-limits = ["d2x-assets/extended-limits"]
+
+# Graphics features
+enhanced-graphics = ["per-pixel-lighting", "advanced-particles"]
+per-pixel-lighting = []
+advanced-particles = []
+pbr-materials = []
+hdr-rendering = []
+
+# Networking
+lan-discovery = []
+master-server = []
+dedicated-server = []

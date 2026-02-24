@@ -1,0 +1,42 @@
+[package]
+name = "d2x-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Game client application for D2X-RS"
+
+[[bin]]
+name = "d2x-client"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+d2x-assets = { path = "../d2x-assets" }
+d2x-engine = { path = "../d2x-engine" }
+
+# Bevy
+bevy = { workspace = true, features = ["dynamic_linking", "bevy_winit", "x11"] }
+
+# UI
+bevy_egui = "0.28"
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[features]
+default = ["base-d2"]
+
+base-d1 = []
+base-d2 = ["base-d1"]
+d2x-xl = ["d2x-engine/d2x-xl"]

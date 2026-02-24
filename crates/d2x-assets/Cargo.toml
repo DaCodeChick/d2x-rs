@@ -1,0 +1,53 @@
+[package]
+name = "d2x-assets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Asset extraction and parsing for Descent 1 and 2 game files"
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Binary parsing
+nom = { workspace = true }
+
+# Math
+glam = { workspace = true }
+
+# Image processing
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# Utilities
+once_cell = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+# criterion = "0.5"
+
+# [[bench]]
+# name = "hog_parsing"
+# harness = false
+
+[features]
+default = []
+
+# Game versions
+base-d1 = []
+base-d2 = ["base-d1"]
+
+# Extended limits (D2X-XL)
+extended-limits = []
+
+# High-res asset support
+hires-assets = []
