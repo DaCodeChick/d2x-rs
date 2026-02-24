@@ -31,14 +31,15 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] POF model format parser (D1/D2 polygon models with 9 opcodes)
 - [x] Sound format parsers (D1/D2: SNDs 8-bit PCM, HMP/MIDI music)
 - [x] Mission file parser (D1/D2: .MSN and .MN2 text-based format)
-- [x] Unit tests (76 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 13 Mission + 22 others)
+- [x] Player profile parser (D1/D2: .PLR binary, D2X-XL: .PLX text)
+- [x] Unit tests (92 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 13 Mission + 16 Player + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
 - [ ] Additional level format features (D2X-XL extensions)
 
 **📋 Next Up (D1/D2 First):**
-- [ ] Complete D1/D2 asset parsers (savegames, player files)
+- [ ] Integration tests with real game files
 - [ ] Level rendering (Phase 2 - D1/D2 segment-based)
 - [ ] Physics system (Phase 3 - D1/D2)
 - [ ] D3 format support (later - D3L, OOF, OSF, GAM, MN3)

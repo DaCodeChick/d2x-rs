@@ -40,6 +40,10 @@ pub enum AssetError {
     #[error("Unsupported version: {version}, expected {expected}")]
     UnsupportedVersion { version: u32, expected: u32 },
 
+    /// Unsupported file format
+    #[error("Unsupported format: {0}")]
+    UnsupportedFormat(String),
+
     /// Corrupt data at specific offset
     #[error("Corrupt data at offset {offset:#x}")]
     CorruptData { offset: usize },

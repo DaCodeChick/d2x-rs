@@ -13,6 +13,7 @@
 //! - **POF**: 3D polygon models
 //! - **Sound**: Audio samples (SNDs) and music (HMP)
 //! - **Mission**: Mission files (.MSN/.MN2)
+//! - **Player**: Player profiles (.PLR binary, .PLX text)
 //!
 //! ## Descent 3 (1999) - Outrage Engine
 //! - **HOG2**: Archive format (enhanced version)
@@ -76,6 +77,7 @@ pub mod models;
 pub mod ogf;
 pub mod palette;
 pub mod pig;
+pub mod player;
 pub mod pof;
 pub mod sound;
 
@@ -88,6 +90,9 @@ pub use mission::{MissionFile, SecretLevel};
 pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
+pub use player::{
+    PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
+};
 pub use pof::{
     FixVector, FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap,
     SubmodelCall, TexturedPolygon, Uvl,
