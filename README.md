@@ -17,17 +17,17 @@ Currently implementing asset parsing foundation with comprehensive documentation
 **✅ Completed:**
 - [x] Complete architecture documentation
 - [x] Cargo workspace structure (Rust 2024 edition, GPL-3.0)
-- [x] Asset parsing crate foundation with GameVersion enum
+- [x] Asset parsing crate foundation with split DHF/HOG2 modules
 - [x] Engine crate structure
 - [x] Client application skeleton
-- [x] HOG archive format parser (D1/D2 DHF format)
-- [x] HOG2 archive format parser (D3 format with 36-char filenames)
+- [x] DHF archive format parser (D1/D2 with 13-char filenames)
+- [x] HOG2 archive format parser (D3 with 36-char filenames, flags, timestamps)
 - [x] PIG texture format parser (with RLE decompression)
 - [x] HAM game data parser (textures, robots, weapons)
 - [x] Palette handling (6-bit to 8-bit RGB conversion)
 - [x] Level geometry parser (RDL/RL2 format for D1/D2)
-- [x] Comprehensive format documentation (HOG/HOG2, PIG, HAM, LEVEL, D3 overview)
-- [x] Unit tests (35 tests passing, including HOG2)
+- [x] Comprehensive format documentation (DHF/HOG2, PIG, HAM, LEVEL, D3 overview)
+- [x] Unit tests (35 tests passing: 6 DHF + 7 HOG2 + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
@@ -210,10 +210,11 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] Format documentation (1000+ lines across multiple files)
 
 **✅ D3 Initial Support:**
-- [x] HOG2 archive parser with 36-char filenames
-- [x] GameVersion detection (D1/D2/D3)
+- [x] HOG2 archive parser (separate module: hog2.rs)
+- [x] 36-char filenames, flags, and timestamps
+- [x] Split architecture: dhf.rs (D1/D2) and hog2.rs (D3)
 - [x] D3 formats overview documentation
-- [x] HOG2 unit tests
+- [x] 7 comprehensive HOG2 unit tests
 
 **🚧 D3 Remaining:**
 - [ ] OGF texture format (Outrage Graphics)
