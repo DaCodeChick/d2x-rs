@@ -17,8 +17,8 @@
 //! # Examples
 //!
 //! ```no_run
-//! # use d2x_assets::palette::Palette;
-//! # use d2x_assets::error::Result;
+//! # use descent_core::palette::Palette;
+//! # use descent_core::error::Result;
 //! # fn example() -> Result<()> {
 //! // Load Descent 2 palette
 //! let data = std::fs::read("groupa.256")?;

@@ -10,7 +10,7 @@ There are two versions, implemented in separate modules:
 
 ## DHF Format (Descent 1 & 2)
 
-**Module**: `d2x_assets::dhf`  
+**Module**: `descent_core::dhf`  
 **Types**: `DhfArchive`, `DhfEntry`
 
 ### File Structure
@@ -72,7 +72,7 @@ Data:     [76,352 bytes of level data]
 
 ## HOG2 Format (Descent 3)
 
-**Module**: `d2x_assets::hog2`  
+**Module**: `descent_core::hog2`  
 **Types**: `Hog2Archive`, `Hog2Entry`
 
 Descent 3 uses an enhanced HOG format called HOG2 with structured headers and larger filename support.

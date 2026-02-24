@@ -49,7 +49,7 @@ impl Hog2Archive {
     ///
     /// # Example
     /// ```ignore
-    /// use d2x_assets::Hog2Archive;
+    /// use descent_core::Hog2Archive;
     ///
     /// let hog = Hog2Archive::open("d3.hog")?;
     /// ```

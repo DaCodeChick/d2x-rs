@@ -20,7 +20,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 ```
 d2x-rs/
 ├── crates/
-│   ├── d2x-assets/       # Asset extraction and parsing
+│   ├── descent-core/       # Asset extraction and parsing
 │   ├── d2x-engine/       # Core game engine (ECS systems)
 │   └── d2x-client/       # Game client application
 ├── editor/               # C++23/Qt6 level editor (Phase 2)
@@ -43,7 +43,7 @@ The project uses a Cargo workspace to manage dependencies and ensure consistency
 
 ---
 
-## Crate 1: d2x-assets
+## Crate 1: descent-core
 
 **Purpose**: Parse and extract all Descent game data files without game logic dependencies.
 
@@ -289,7 +289,7 @@ pub struct SubModel {
 
 ```rust
 // Example usage
-use d2x_assets::{HogArchive, PigFile, HamFile, Level};
+use descent_core::{HogArchive, PigFile, HamFile, Level};
 
 // Load assets
 let hog = HogArchive::open("descent2.hog")?;
@@ -1169,7 +1169,7 @@ const MAX_SEGMENTS: usize = 900;
 ## Development Phases
 
 ### Phase 1: Asset Foundation (Months 1-2)
-- [ ] `d2x-assets` crate complete
+- [ ] `descent-core` crate complete
 - [ ] HOG, PIG, HAM, Level parsers
 - [ ] Unit tests with real D1/D2 files
 - [ ] Documentation
@@ -1332,7 +1332,7 @@ All public APIs must have:
 ///
 /// # Example
 /// ```
-/// use d2x_assets::HogArchive;
+/// use descent_core::HogArchive;
 /// 
 /// let hog = HogArchive::open("descent2.hog")?;
 /// let file_data = hog.read_file("level01.rl2")?;

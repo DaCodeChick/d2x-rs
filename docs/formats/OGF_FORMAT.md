@@ -221,7 +221,7 @@ total_size = frame_size * num_frames;
 ### Loading an OGF Texture
 
 ```rust
-use d2x_assets::ogf::OgfTexture;
+use descent_core::ogf::OgfTexture;
 
 // Read file data
 let data = std::fs::read("texture.ogf")?;
@@ -278,7 +278,7 @@ if texture.header.is_animated() {
 ### Checking Texture Flags
 
 ```rust
-use d2x_assets::ogf::TextureFlags;
+use descent_core::ogf::TextureFlags;
 
 let flags = TextureFlags::from_bits_truncate(texture.header.flags);
 
@@ -320,7 +320,7 @@ Pixel data is tightly packed with no padding between pixels, rows, or mipmaps. D
 
 - [Descent 3 Formats Overview](D3_FORMATS.md) - Overview of all D3 formats
 - [HOG Format](HOG_FORMAT.md) - Archive format containing OGF files
-- **Implementation:** `crates/d2x-assets/src/ogf.rs`
+- **Implementation:** `crates/descent-core/src/ogf.rs`
 
 ## References
 

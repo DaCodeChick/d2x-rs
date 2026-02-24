@@ -8,8 +8,8 @@ repository.workspace = true
 description = "Core game engine for D2X-RS using Bevy ECS"
 
 [dependencies]
-# Asset library
-d2x-assets = { path = "../d2x-assets" }
+# Core library
+descent-core = { path = "../descent-core" }
 
 # Bevy
 bevy = { workspace = true, features = ["bevy_asset", "bevy_scene", "bevy_render", "bevy_core_pipeline", "bevy_pbr", "bevy_gltf", "bevy_audio"] }
@@ -37,13 +37,13 @@ default = ["base-d2"]
 
 # Game versions
 base-d1 = []
-base-d2 = ["base-d1", "d2x-assets/base-d2"]
+base-d2 = ["base-d1", "descent-core/base-d2"]
 
 # Derivative features
 d2x-xl = ["extended-limits", "enhanced-graphics"]
 
 # Extended limits
-extended-limits = ["d2x-assets/extended-limits"]
+extended-limits = ["descent-core/extended-limits"]
 
 # Graphics features
 enhanced-graphics = ["per-pixel-lighting", "advanced-particles"]

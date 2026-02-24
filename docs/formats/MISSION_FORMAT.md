@@ -478,7 +478,7 @@ typedef struct {
 
 ## Reference Implementation
 
-The Rust implementation in `d2x-assets` provides:
+The Rust implementation in `descent-core` provides:
 
 ```rust
 /// Mission file parser for Descent 1 (.msn) and Descent 2 (.mn2)
@@ -508,7 +508,7 @@ impl MissionFile {
 ### Usage Example
 
 ```rust
-use d2x_assets::MissionFile;
+use descent_core::MissionFile;
 
 // Read mission file
 let content = std::fs::read_to_string("mymission.mn2")?;

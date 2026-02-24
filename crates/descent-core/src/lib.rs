@@ -1,8 +1,8 @@
-//! # D2X Assets
+//! # Descent Core
 //!
-//! Asset extraction and parsing library for Descent 1, 2, and 3 game files.
+//! Core data parsing and asset extraction library for Descent 1, 2, and 3.
 //!
-//! This crate provides parsers for Descent data file formats across all three games:
+//! This crate provides parsers for all Descent game data file formats across all three games:
 //!
 //! ## Descent 1 & 2 (1995-1996) - Parallax Engine
 //! - **DHF**: Archive files containing game assets (DHF format)
@@ -11,7 +11,8 @@
 //! - **Palette**: Color palettes for indexed bitmaps (6-bit RGB)
 //! - **RDL/RL2**: Level geometry and metadata (segment-based)
 //! - **POF**: 3D polygon models
-//! - **Sound**: Audio samples and music
+//! - **Sound**: Audio samples (SNDs) and music (HMP)
+//! - **Mission**: Mission files (.MSN/.MN2)
 //!
 //! ## Descent 3 (1999) - Outrage Engine
 //! - **HOG2**: Archive format (enhanced version)
@@ -26,7 +27,7 @@
 //! ## Example - Descent 1/2
 //!
 //! ```ignore
-//! use d2x_assets::{DhfArchive, PigFile, Palette};
+//! use descent_core::{DhfArchive, PigFile, Palette};
 //!
 //! // Open DHF archive (Descent 1/2)
 //! let mut hog = DhfArchive::open("descent2.hog")?;
@@ -51,7 +52,7 @@
 //! ## Example - Descent 3
 //!
 //! ```ignore
-//! use d2x_assets::Hog2Archive;
+//! use descent_core::Hog2Archive;
 //!
 //! // Open HOG2 archive (Descent 3)
 //! let mut hog = Hog2Archive::open("d3.hog")?;

@@ -67,7 +67,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 - Shared dependencies (Bevy, serde, winnow, etc.)
 - Optimized build profiles
 
-#### d2x-assets Crate
+#### descent-core Crate
 **Purpose**: Asset extraction library (no game logic dependencies)
 
 **Implemented**:
@@ -149,7 +149,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 ## Design Decisions Implemented
 
 ### 1. Crate Separation
-- **d2x-assets**: Pure data parsing, reusable library
+- **descent-core**: Pure data parsing, reusable library
 - **d2x-engine**: Game logic as Bevy plugins, engine-agnostic
 - **d2x-client**: Application-specific code (UI, menus)
 
@@ -189,10 +189,10 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 
 | D2X-XL System | D2X-RS Crate | Status |
 |---------------|--------------|---------|
-| hogfile.cpp | d2x-assets::hog | ✅ Implemented |
-| piggy.cpp | d2x-assets::pig | 📝 Stubbed |
-| loadgamedata.cpp | d2x-assets::ham | 📝 Stubbed |
-| loadgeometry.cpp | d2x-assets::level | 📝 Stubbed |
+| hogfile.cpp | descent-core::hog | ✅ Implemented |
+| piggy.cpp | descent-core::pig | 📝 Stubbed |
+| loadgamedata.cpp | descent-core::ham | 📝 Stubbed |
+| loadgeometry.cpp | descent-core::level | 📝 Stubbed |
 | physics/*.cpp | d2x-engine::physics | 📝 Stubbed |
 | ai/*.cpp | d2x-engine::ai | 📝 Stubbed |
 | network/*.cpp | d2x-engine::network | 📋 Designed |
@@ -202,7 +202,7 @@ D2X-RS is a complete rewrite of the Descent 1 and 2 game engine in Rust 2024 edi
 
 ### Immediate Priorities (Phase 1: Months 1-2)
 
-1. **Complete d2x-assets parsers**:
+1. **Complete descent-core parsers**:
    - PIG file parser with RLE decompression
    - HAM file parser (robots, weapons, physics data)
    - RDL/RL2 level parser
@@ -272,7 +272,7 @@ d2x-rs/
 ├── .gitignore (complete)
 ├── LICENSE (from template)
 ├── crates/
-│   ├── d2x-assets/
+│   ├── descent-core/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs (module exports)

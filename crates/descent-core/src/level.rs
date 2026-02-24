@@ -441,7 +441,7 @@ impl Level {
     /// # Example
     ///
     /// ```no_run
-    /// use d2x_assets::level::Level;
+    /// use descent_core::level::Level;
     ///
     /// let data = std::fs::read("level01.rdl").unwrap();
     /// let level = Level::parse(&data, Some("level01.rdl")).unwrap();

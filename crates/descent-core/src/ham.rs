@@ -17,8 +17,8 @@
 //! # Examples
 //!
 //! ```no_run
-//! # use d2x_assets::ham::HamFile;
-//! # use d2x_assets::error::Result;
+//! # use descent_core::ham::HamFile;
+//! # use descent_core::error::Result;
 //! # fn example() -> Result<()> {
 //! let data = std::fs::read("descent2.ham")?;
 //! let ham = HamFile::parse(&data)?;

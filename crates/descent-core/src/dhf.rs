@@ -39,7 +39,7 @@ impl DhfArchive {
     ///
     /// # Example
     /// ```ignore
-    /// use d2x_assets::DhfArchive;
+    /// use descent_core::DhfArchive;
     ///
     /// let hog = DhfArchive::open("descent2.hog")?;
     /// ```

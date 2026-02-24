@@ -578,7 +578,7 @@ POF files have no fixed header - they start immediately with opcodes. The interp
 ## Tools & References
 
 - **D2X-XL Source**: `/tmp/d2x-xl/3d/interp.cpp` - Reference interpreter
-- **Implementation**: `crates/d2x-assets/src/pof.rs` - Rust parser
+- **Implementation**: `crates/descent-core/src/pof.rs` - Rust parser
 - **Tests**: 11 comprehensive unit tests covering all opcodes
 
 ## Limitations & Future Work

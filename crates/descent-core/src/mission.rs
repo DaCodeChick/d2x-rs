@@ -11,7 +11,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use d2x_assets::MissionFile;
+//! use descent_core::MissionFile;
 //!
 //! let data = std::fs::read_to_string("mymission.mn2")?;
 //! let mission = MissionFile::parse(&data)?;
@@ -84,7 +84,7 @@ impl MissionFile {
     /// # Example
     ///
     /// ```
-    /// # use d2x_assets::MissionFile;
+    /// # use descent_core::MissionFile;
     /// let content = "name = Test Mission\ntype = normal\nnum_levels = 1\nlevel01.rdl\n";
     /// let mission = MissionFile::parse(content).unwrap();
     /// assert_eq!(mission.name, "Test Mission");
@@ -311,10 +311,9 @@ impl MissionFile {
 
         // Parse base level numbers
         for part in &parts[1..] {
-            let level_num: u32 = part
-                .trim()
-                .parse()
-                .map_err(|_| AssetError::InvalidFormat(format!("Invalid level number: {}", part)))?;
+            let level_num: u32 = part.trim().parse().map_err(|_| {
+                AssetError::InvalidFormat(format!("Invalid level number: {}", part))
+            })?;
 
             if level_num < 1 {
                 return Err(AssetError::InvalidFormat(format!(

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Descent 3 uses the **Outrage Engine**, which introduced significantly different file formats from Descent 1 and 2. This document provides an overview of all D3 formats supported or planned for the `d2x-assets` library.
+Descent 3 uses the **Outrage Engine**, which introduced significantly different file formats from Descent 1 and 2. This document provides an overview of all D3 formats supported or planned for the `descent-core` library.
 
 ## Format Summary
 
@@ -51,7 +51,7 @@ HOG2 is the enhanced archive format for D3, featuring:
 
 ### Usage Example
 ```rust
-use d2x_assets::ogf::{OgfTexture, TextureFlags};
+use descent_core::ogf::{OgfTexture, TextureFlags};
 
 // Parse OGF texture
 let data = std::fs::read("texture.ogf")?;
@@ -218,7 +218,7 @@ Unlike D1/D2's binary HAM format, GAM files use a hybrid approach:
   - **Level scripts** - Level-wide logic
   - **Mission scripts** - Mission progression
 
-**Note**: The `d2x-assets` library will only parse script metadata (names, parameters, references), not execute scripts.
+**Note**: The `descent-core` library will only parse script metadata (names, parameters, references), not execute scripts.
 
 ## Mission Format: MN3
 
@@ -355,7 +355,7 @@ All format parsers should support:
 - Community modding tools
 
 ### Code References
-- This implementation: `crates/d2x-assets/src/`
+- This implementation: `crates/descent-core/src/`
 - D1/D2 reference: D2X-XL source code
 - D3 reference: Community tools and documentation
 

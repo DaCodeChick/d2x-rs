@@ -29,7 +29,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use d2x_assets::sound::{SoundHeader, HmpFile};
+//! use descent_core::sound::{SoundHeader, HmpFile};
 //! use std::fs;
 //!
 //! // Parse sound header from PIG file

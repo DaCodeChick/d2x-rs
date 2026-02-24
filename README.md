@@ -87,7 +87,7 @@ D2X-RS addresses these by:
 ```
 d2x-rs/
 ├── crates/
-│   ├── d2x-assets/       # Asset extraction (HOG/HOG2, PIG, HAM, POF, RDL/RL2, D3L, OGF, OOF)
+│   ├── descent-core/       # Asset extraction (HOG/HOG2, PIG, HAM, POF, RDL/RL2, D3L, OGF, OOF)
 │   ├── d2x-engine/       # Core engine (Bevy ECS systems)
 │   └── d2x-client/       # Game client application
 ├── editor/               # Level editor (C++23/Qt6) - Phase 2
@@ -144,7 +144,7 @@ cargo build
 cargo test -- --nocapture
 
 # Run specific crate tests
-cargo test --package d2x-assets
+cargo test --package descent-core
 ```
 
 ### Feature Flags

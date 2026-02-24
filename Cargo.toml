@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/d2x-assets",
+    "crates/descent-core",
     "crates/d2x-engine",
     "crates/d2x-client",
 ]

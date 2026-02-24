@@ -85,7 +85,7 @@ This maps:
 ### Usage Example
 
 ```rust
-use d2x_assets::{SoundHeader, SoundData, PigFile};
+use descent_core::{SoundHeader, SoundData, PigFile};
 
 // Parse PIG file
 let pig_data = std::fs::read("groupa.pig")?;
@@ -225,7 +225,7 @@ let bpm = 60_000_000 / microseconds_per_quarter;
 ### Parsing Example
 
 ```rust
-use d2x_assets::HmpFile;
+use descent_core::HmpFile;
 
 // Read HMP file
 let data = std::fs::read("game01.hmp")?;
@@ -359,7 +359,7 @@ For HMP music playback, consider:
 
 ## Reference Implementation
 
-The Rust implementation in `d2x-assets` provides:
+The Rust implementation in `descent-core` provides:
 
 ### Sound Types
 

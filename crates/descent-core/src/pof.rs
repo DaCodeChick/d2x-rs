@@ -23,7 +23,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use d2x_assets::pof::PofParser;
+//! use descent_core::pof::PofParser;
 //! use std::fs;
 //!
 //! let data = fs::read("pyrogl.pof").unwrap();
