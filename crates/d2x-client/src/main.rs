@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use d2x_engine::D2xEnginePlugin;
+use tracing::info;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "D2X-RS - Descent Engine Rewrite".to_string(),
-                resolution: (1280.0, 720.0).into(),
+                resolution: (1280, 720).into(),
                 ..default()
             }),
             ..default()
@@ -18,19 +19,12 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     // Setup camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn(Camera3d::default());
 
     // Setup light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    commands.spawn(PointLight {
+        intensity: 1500.0,
+        shadows_enabled: true,
         ..default()
     });
 

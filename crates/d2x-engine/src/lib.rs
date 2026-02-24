@@ -4,16 +4,17 @@
 //!
 //! This crate implements all game systems as Bevy plugins.
 
-pub mod level;
-pub mod physics;
-pub mod objects;
-pub mod weapons;
 pub mod ai;
-pub mod collision;
-pub mod rendering;
 pub mod audio;
+pub mod collision;
+pub mod level;
+pub mod objects;
+pub mod physics;
+pub mod rendering;
+pub mod weapons;
 
 use bevy::prelude::*;
+use tracing::info;
 
 /// Main engine plugin
 pub struct D2xEnginePlugin;
