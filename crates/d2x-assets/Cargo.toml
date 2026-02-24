@@ -27,6 +27,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 
 # Utilities
 once_cell = { workspace = true }
+bitflags = "2.6"
 
 # Logging
 tracing = { workspace = true }
