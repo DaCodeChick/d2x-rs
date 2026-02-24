@@ -2,7 +2,7 @@
 //!
 //! This module provides converters for:
 //! - **Textures**: PIG (8-bit indexed) and OGF (D3 textures) → PNG, WebP
-//! - **Models**: POF → glTF 2.0 (future)
+//! - **Models**: POF → glTF 2.0 / GLB
 //! - **Audio**: SNDs → WAV, HMP → MIDI (future)
 //! - **Levels**: RDL/RL2 → glTF scenes (future)
 //!
@@ -28,8 +28,27 @@
 //! let png_data = converter.pig_to_png(&pig, "wall01-0").unwrap();
 //! fs::write("wall01-0.png", png_data).unwrap();
 //! ```
+//!
+//! ## Converting POF Models to GLB
+//!
+//! ```no_run
+//! use descent_core::pof::PofParser;
+//! use descent_core::converters::model::ModelConverter;
+//! use std::fs;
+//!
+//! // Load POF file
+//! let pof_data = fs::read("pyrogl.pof").unwrap();
+//! let model = PofParser::parse(&pof_data).unwrap();
+//!
+//! // Convert to GLB
+//! let converter = ModelConverter::new();
+//! let glb_data = converter.pof_to_glb(&model, "Pyro-GL Ship").unwrap();
+//! fs::write("pyrogl.glb", glb_data).unwrap();
+//! ```
 
+pub mod model;
 pub mod texture;
 
 // Re-export main types
+pub use model::ModelConverter;
 pub use texture::{ImageFormat, TextureConvertError, TextureConverter};
