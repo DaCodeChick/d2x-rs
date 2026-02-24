@@ -43,7 +43,7 @@ use crate::error::{AssetError, Result};
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 // HAM file constants
-const HAM_SIGNATURE: u32 = 0x48414D21; // "HAM!" = MAKE_SIG('!','M','A','H')
+const HAM_SIGNATURE: u32 = 0x48414D21; // "HAM!"
 const HAM_VERSION_DEMO: i32 = 2;
 const HAM_VERSION_STANDARD: i32 = 3;
 

@@ -415,7 +415,7 @@ fn rle_decompress(data: &[u8], width: u16, height: u16) -> Result<Vec<u8>> {
             i += 1;
 
             // Repeat color 'count' times
-            output.extend(std::iter::repeat(color).take(count as usize));
+            output.extend(std::iter::repeat_n(color, count as usize));
         }
 
         // Safety check: don't exceed expected size
