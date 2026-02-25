@@ -130,28 +130,22 @@ impl PlxProfile {
     pub fn parse(data: &str) -> Result<Self> {
         let mut profile = Self::new();
 
-        for line in data.lines() {
-            let line = line.trim();
-
-            // Skip empty lines
-            if line.is_empty() {
-                continue;
-            }
-
-            // Find the '=' separator
-            if let Some(eq_pos) = line.find('=') {
+        profile.params = data
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .filter_map(|line| {
+                let eq_pos = line.find('=')?;
                 let key = line[..eq_pos].trim();
                 let value = line[eq_pos + 1..].trim();
 
-                // Skip invalid keys (empty)
                 if key.is_empty() {
-                    continue;
+                    None
+                } else {
+                    Some((key.to_string(), value.to_string()))
                 }
-
-                profile.params.insert(key.to_string(), value.to_string());
-            }
-            // Lines without '=' are ignored (could be comments or malformed)
-        }
+            })
+            .collect();
 
         Ok(profile)
     }

@@ -397,22 +397,19 @@ impl Level {
         };
 
         // Read vertices
-        let mut vertices = Vec::with_capacity(vertex_count);
-        for _ in 0..vertex_count {
-            vertices.push(read_fix_vector(&mut cursor)?);
-        }
+        let vertices = (0..vertex_count)
+            .map(|_| read_fix_vector(&mut cursor))
+            .collect::<Result<Vec<_>>>()?;
 
         // Read segments
-        let mut segments = Vec::with_capacity(segment_count);
-        for _ in 0..segment_count {
-            let segment = Self::read_segment(&mut cursor, new_file_format, vertex_count)?;
-            segments.push(segment);
-        }
+        let mut segments = (0..segment_count)
+            .map(|_| Self::read_segment(&mut cursor, new_file_format, vertex_count))
+            .collect::<Result<Vec<_>>>()?;
 
         // Read segment extras
-        for segment in &mut segments {
-            Self::read_segment_extras(&mut cursor, segment, MINE_VERSION)?;
-        }
+        segments.iter_mut().try_for_each(|segment| {
+            Self::read_segment_extras(&mut cursor, segment, MINE_VERSION)
+        })?;
 
         Ok(Self {
             version: MINE_VERSION,
@@ -443,25 +440,37 @@ impl Level {
         // TODO: Support D1 (v1) and D2 Shareware (v5) layouts
 
         // Read children
-        for i in 0..SEGMENT_SIDE_COUNT {
-            segment.children[i] = if (flags & (1 << i)) != 0 {
-                cursor.read_i16_le()?
-            } else {
-                -1
-            };
-        }
+        segment.children = (0..SEGMENT_SIDE_COUNT)
+            .map(|i| {
+                if (flags & (1 << i)) != 0 {
+                    cursor.read_i16_le()
+                } else {
+                    Ok(-1)
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
+            .try_into()
+            .map_err(|_| {
+                AssetError::InvalidLevelFormat("Invalid children array length".to_string())
+            })?;
 
         // Read vertices
-        for i in 0..SEGMENT_VERTEX_COUNT {
-            let vertex_idx = cursor.read_u16_le()?;
-            if vertex_idx as usize >= vertex_count {
-                return Err(AssetError::InvalidLevelFormat(format!(
-                    "Vertex index {} out of range (max {})",
-                    vertex_idx, vertex_count
-                )));
-            }
-            segment.vertices[i] = vertex_idx;
-        }
+        segment.vertices = (0..SEGMENT_VERTEX_COUNT)
+            .map(|_| {
+                let vertex_idx = cursor.read_u16_le()?;
+                if vertex_idx as usize >= vertex_count {
+                    return Err(AssetError::InvalidLevelFormat(format!(
+                        "Vertex index {} out of range (max {})",
+                        vertex_idx, vertex_count
+                    )));
+                }
+                Ok(vertex_idx)
+            })
+            .collect::<Result<Vec<_>>>()?
+            .try_into()
+            .map_err(|_| {
+                AssetError::InvalidLevelFormat("Invalid vertices array length".to_string())
+            })?;
 
         // Read wall flags
         let wall_flags = if new_file_format {
@@ -471,25 +480,31 @@ impl Level {
         };
 
         // Read wall numbers for each side
-        for i in 0..SEGMENT_SIDE_COUNT {
-            segment.sides[i].wall_num = if (wall_flags & (1 << i)) != 0 {
-                // TODO: Check version for u8 vs u16
-                cursor.read_u16_le()?
-            } else {
-                0xFFFF
-            };
+        let wall_nums: Vec<u16> = (0..SEGMENT_SIDE_COUNT)
+            .map(|i| {
+                if (wall_flags & (1 << i)) != 0 {
+                    // TODO: Check version for u8 vs u16
+                    cursor.read_u16_le()
+                } else {
+                    Ok(0xFFFF)
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for (i, wall_num) in wall_nums.into_iter().enumerate() {
+            segment.sides[i].wall_num = wall_num;
         }
 
         // Read sides
-        for i in 0..SEGMENT_SIDE_COUNT {
+        (0..SEGMENT_SIDE_COUNT).try_for_each(|i| {
             Self::read_side(
                 cursor,
                 &mut segment.sides[i],
                 &segment.vertices,
                 segment.children[i],
                 new_file_format,
-            )?;
-        }
+            )
+        })?;
 
         Ok(segment)
     }
@@ -547,9 +562,11 @@ impl Level {
         side.overlay_texture %= MAX_WALL_TEXTURES as u16;
 
         // Read UVLs (4 corners)
-        for i in 0..SIDE_CORNER_COUNT {
-            side.uvls[i] = read_uvl(cursor)?;
-        }
+        side.uvls = (0..SIDE_CORNER_COUNT)
+            .map(|_| read_uvl(cursor))
+            .collect::<Result<Vec<_>>>()?
+            .try_into()
+            .map_err(|_| AssetError::InvalidLevelFormat("Invalid UVL array length".to_string()))?;
 
         Ok(())
     }

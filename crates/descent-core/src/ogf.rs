@@ -232,15 +232,10 @@ impl OgfTexture {
 
         // Calculate expected data size
         let base_size = header.base_data_size();
-        let mut total_size = base_size;
-
-        // Add mipmap sizes
-        for level in 1..=num_mipmaps {
-            total_size += header.mipmap_data_size(level);
-        }
-
-        // Multiply by frame count for animations
-        total_size *= num_frames as usize;
+        let mipmap_sizes: usize = (1..=num_mipmaps)
+            .map(|level| header.mipmap_data_size(level))
+            .sum();
+        let total_size = (base_size + mipmap_sizes) * num_frames as usize;
 
         if data.len() < offset + total_size {
             return Err(AssetError::InvalidFormat(format!(
@@ -274,13 +269,8 @@ impl OgfTexture {
             )));
         }
 
-        let mut offset = 0;
-
         // Skip previous mipmap levels
-        for l in 0..level {
-            offset += self.header.mipmap_data_size(l);
-        }
-
+        let offset: usize = (0..level).map(|l| self.header.mipmap_data_size(l)).sum();
         let size = self.header.mipmap_data_size(level);
         Ok(&self.data[offset..offset + size])
     }
@@ -296,10 +286,10 @@ impl OgfTexture {
         }
 
         // Calculate size of one complete frame (base + all mipmaps)
-        let mut frame_size = self.header.base_data_size();
-        for level in 1..=self.header.num_mipmaps {
-            frame_size += self.header.mipmap_data_size(level);
-        }
+        let frame_size = self.header.base_data_size()
+            + (1..=self.header.num_mipmaps)
+                .map(|level| self.header.mipmap_data_size(level))
+                .sum::<usize>();
 
         let offset = frame as usize * frame_size;
         Ok(&self.data[offset..offset + frame_size])
@@ -330,27 +320,24 @@ impl OgfTexture {
             ));
         }
 
-        let mut rgba = Vec::with_capacity(pixel_count * 4);
+        let rgba = (0..pixel_count)
+            .flat_map(|i| {
+                let offset = i * 2;
+                let pixel = u16::from_le_bytes([data[offset], data[offset + 1]]);
 
-        for i in 0..pixel_count {
-            let offset = i * 2;
-            let pixel = u16::from_le_bytes([data[offset], data[offset + 1]]);
+                // Extract RGB565 components
+                let r5 = ((pixel >> 11) & 0x1F) as u8;
+                let g6 = ((pixel >> 5) & 0x3F) as u8;
+                let b5 = (pixel & 0x1F) as u8;
 
-            // Extract RGB565 components
-            let r5 = ((pixel >> 11) & 0x1F) as u8;
-            let g6 = ((pixel >> 5) & 0x3F) as u8;
-            let b5 = (pixel & 0x1F) as u8;
+                // Scale to 8-bit
+                let r = (r5 << 3) | (r5 >> 2); // 5-bit to 8-bit
+                let g = (g6 << 2) | (g6 >> 4); // 6-bit to 8-bit
+                let b = (b5 << 3) | (b5 >> 2); // 5-bit to 8-bit
 
-            // Scale to 8-bit
-            let r = (r5 << 3) | (r5 >> 2); // 5-bit to 8-bit
-            let g = (g6 << 2) | (g6 >> 4); // 6-bit to 8-bit
-            let b = (b5 << 3) | (b5 >> 2); // 5-bit to 8-bit
-
-            rgba.push(r);
-            rgba.push(g);
-            rgba.push(b);
-            rgba.push(255); // Fully opaque
-        }
+                [r, g, b, 255]
+            })
+            .collect();
 
         Ok(rgba)
     }
@@ -364,29 +351,26 @@ impl OgfTexture {
             ));
         }
 
-        let mut rgba = Vec::with_capacity(pixel_count * 4);
+        let rgba = (0..pixel_count)
+            .flat_map(|i| {
+                let offset = i * 2;
+                let pixel = u16::from_le_bytes([data[offset], data[offset + 1]]);
 
-        for i in 0..pixel_count {
-            let offset = i * 2;
-            let pixel = u16::from_le_bytes([data[offset], data[offset + 1]]);
+                // Extract RGBA4444 components
+                let r4 = ((pixel >> 12) & 0x0F) as u8;
+                let g4 = ((pixel >> 8) & 0x0F) as u8;
+                let b4 = ((pixel >> 4) & 0x0F) as u8;
+                let a4 = (pixel & 0x0F) as u8;
 
-            // Extract RGBA4444 components
-            let r4 = ((pixel >> 12) & 0x0F) as u8;
-            let g4 = ((pixel >> 8) & 0x0F) as u8;
-            let b4 = ((pixel >> 4) & 0x0F) as u8;
-            let a4 = (pixel & 0x0F) as u8;
+                // Scale to 8-bit (duplicate nibble)
+                let r = (r4 << 4) | r4;
+                let g = (g4 << 4) | g4;
+                let b = (b4 << 4) | b4;
+                let a = (a4 << 4) | a4;
 
-            // Scale to 8-bit (duplicate nibble)
-            let r = (r4 << 4) | r4;
-            let g = (g4 << 4) | g4;
-            let b = (b4 << 4) | b4;
-            let a = (a4 << 4) | a4;
-
-            rgba.push(r);
-            rgba.push(g);
-            rgba.push(b);
-            rgba.push(a);
-        }
+                [r, g, b, a]
+            })
+            .collect();
 
         Ok(rgba)
     }
@@ -417,21 +401,13 @@ mod tests {
 
         // Pixel data: 4x4 RGB565 pixels (32 bytes)
         // Red pixel (RGB565: 0xF800)
-        for _ in 0..4 {
-            data.extend_from_slice(&0xF800u16.to_le_bytes());
-        }
+        (0..4).for_each(|_| data.extend_from_slice(&0xF800u16.to_le_bytes()));
         // Green pixel (RGB565: 0x07E0)
-        for _ in 0..4 {
-            data.extend_from_slice(&0x07E0u16.to_le_bytes());
-        }
+        (0..4).for_each(|_| data.extend_from_slice(&0x07E0u16.to_le_bytes()));
         // Blue pixel (RGB565: 0x001F)
-        for _ in 0..4 {
-            data.extend_from_slice(&0x001Fu16.to_le_bytes());
-        }
+        (0..4).for_each(|_| data.extend_from_slice(&0x001Fu16.to_le_bytes()));
         // White pixel (RGB565: 0xFFFF)
-        for _ in 0..4 {
-            data.extend_from_slice(&0xFFFFu16.to_le_bytes());
-        }
+        (0..4).for_each(|_| data.extend_from_slice(&0xFFFFu16.to_le_bytes()));
 
         data
     }

@@ -99,18 +99,15 @@ impl HamFile {
         validate_max(texture_count, MAX_TEXTURES, "texture count", "MAX_TEXTURES")?;
 
         // Read bitmap indices
-        let mut bitmap_indices = Vec::with_capacity(texture_count);
-        for _ in 0..texture_count {
-            bitmap_indices.push(BitmapIndex {
-                index: cursor.read_u16_le()?,
-            });
-        }
+        let bitmap_indices = (0..texture_count)
+            .map(|_| cursor.read_u16_le().map(|index| BitmapIndex { index }))
+            .collect::<Result<Vec<_>>>()?;
 
         // Read texture info
-        let mut textures = Vec::with_capacity(texture_count);
-        for bitmap_index in bitmap_indices {
-            textures.push(parse_texture_info(&mut cursor, bitmap_index)?);
-        }
+        let textures = bitmap_indices
+            .into_iter()
+            .map(|bitmap_index| parse_texture_info(&mut cursor, bitmap_index))
+            .collect::<Result<Vec<_>>>()?;
 
         // Parse sound indices
         let sound_count = cursor.read_i32_le()? as usize;
@@ -123,10 +120,9 @@ impl HamFile {
         let vclip_count = cursor.read_i32_le()? as usize;
         validate_max(vclip_count, MAX_VCLIPS, "VClip count", "MAX_VCLIPS")?;
 
-        let mut vclips = Vec::with_capacity(vclip_count);
-        for _ in 0..vclip_count {
-            vclips.push(parse_vclip_info(&mut cursor)?);
-        }
+        let vclips = (0..vclip_count)
+            .map(|_| parse_vclip_info(&mut cursor))
+            .collect::<Result<Vec<_>>>()?;
 
         // Skip effects section for now (would parse tEffectInfo array here)
         let effect_count = cursor.read_i32_le()? as usize;
@@ -140,10 +136,9 @@ impl HamFile {
         let robot_count = cursor.read_i32_le()? as usize;
         validate_max(robot_count, MAX_ROBOTS, "robot count", "MAX_ROBOTS")?;
 
-        let mut robots = Vec::with_capacity(robot_count);
-        for _ in 0..robot_count {
-            robots.push(parse_robot_info(&mut cursor)?);
-        }
+        let robots = (0..robot_count)
+            .map(|_| parse_robot_info(&mut cursor))
+            .collect::<Result<Vec<_>>>()?;
 
         // Skip robot joints (would parse tJointPos array here)
         let joint_count = cursor.read_i32_le()? as usize;
@@ -153,10 +148,9 @@ impl HamFile {
         let weapon_count = cursor.read_i32_le()? as usize;
         validate_max(weapon_count, MAX_WEAPONS, "weapon count", "MAX_WEAPONS")?;
 
-        let mut weapons = Vec::with_capacity(weapon_count);
-        for _ in 0..weapon_count {
-            weapons.push(parse_weapon_info(&mut cursor, version)?);
-        }
+        let weapons = (0..weapon_count)
+            .map(|_| parse_weapon_info(&mut cursor, version))
+            .collect::<Result<Vec<_>>>()?;
 
         // Skip powerups section
         let powerup_count = cursor.read_i32_le()? as usize;
@@ -167,10 +161,10 @@ impl HamFile {
         cursor.skip_bytes(model_count * 734)?; // CPolyModel size (approximate)
 
         // Skip model data for each model
-        for _ in 0..model_count {
+        (0..model_count).try_for_each(|_| {
             let model_data_size = cursor.read_i32_le()? as usize;
-            cursor.skip_bytes(model_data_size)?;
-        }
+            cursor.skip_bytes(model_data_size)
+        })?;
 
         // Skip dying and dead model arrays
         cursor.skip_bytes(model_count * 4)?; // dying models (i32 array)
@@ -190,17 +184,13 @@ impl HamFile {
             "MAX_OBJ_BITMAPS",
         )?;
 
-        let mut obj_bitmap_indices = Vec::with_capacity(obj_bitmap_count);
-        for _ in 0..obj_bitmap_count {
-            obj_bitmap_indices.push(BitmapIndex {
-                index: cursor.read_u16_le()?,
-            });
-        }
+        let obj_bitmap_indices = (0..obj_bitmap_count)
+            .map(|_| cursor.read_u16_le().map(|index| BitmapIndex { index }))
+            .collect::<Result<Vec<_>>>()?;
 
-        let mut obj_bitmap_pointers = Vec::with_capacity(obj_bitmap_count);
-        for _ in 0..obj_bitmap_count {
-            obj_bitmap_pointers.push(cursor.read_u16_le()?);
-        }
+        let obj_bitmap_pointers = (0..obj_bitmap_count)
+            .map(|_| cursor.read_u16_le())
+            .collect::<Result<Vec<_>>>()?;
 
         // Skip remaining sections (player ship, cockpits, etc.)
 

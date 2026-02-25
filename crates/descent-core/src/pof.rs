@@ -206,38 +206,7 @@ impl<'a> PofParser<'a> {
         let _unused = self.cursor.read_i32_le()?;
 
         // Skip submodel data (we don't need it for texture extraction)
-        // submodel_ptrs[10]: i32 × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _ptr = self.cursor.read_i32_le()?;
-        }
-        // submodel_offsets[10]: FixVector × 10 (12 bytes each)
-        for _ in 0..MAX_SUBMODELS {
-            let _offset = self.read_fixvector()?;
-        }
-        // submodel_norms[10]: FixVector × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _norm = self.read_fixvector()?;
-        }
-        // submodel_pnts[10]: FixVector × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _pnt = self.read_fixvector()?;
-        }
-        // submodel_rads[10]: Fix × 10 (i32)
-        for _ in 0..MAX_SUBMODELS {
-            let _rad = self.cursor.read_i32_le()?;
-        }
-        // submodel_parents[10]: u8 × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _parent = self.cursor.read_u8()?;
-        }
-        // submodel_mins[10]: FixVector × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _min = self.read_fixvector()?;
-        }
-        // submodel_maxs[10]: FixVector × 10
-        for _ in 0..MAX_SUBMODELS {
-            let _max = self.read_fixvector()?;
-        }
+        self.skip_submodel_arrays(MAX_SUBMODELS)?;
 
         // Model-level bounds and radius
         let _model_mins = self.read_fixvector()?;
@@ -249,6 +218,27 @@ impl<'a> PofParser<'a> {
         self.model.first_texture = self.cursor.read_u16_le()?;
         let _simpler_model = self.cursor.read_u8()?;
 
+        Ok(())
+    }
+
+    /// Skip submodel arrays in header (we don't use them for conversion).
+    fn skip_submodel_arrays(&mut self, max_submodels: usize) -> Result<()> {
+        // submodel_ptrs[10]: i32 × 10
+        (0..max_submodels).try_for_each(|_| self.cursor.read_i32_le().map(|_| ()))?;
+        // submodel_offsets[10]: FixVector × 10 (12 bytes each)
+        (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
+        // submodel_norms[10]: FixVector × 10
+        (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
+        // submodel_pnts[10]: FixVector × 10
+        (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
+        // submodel_rads[10]: Fix × 10 (i32)
+        (0..max_submodels).try_for_each(|_| self.cursor.read_i32_le().map(|_| ()))?;
+        // submodel_parents[10]: u8 × 10
+        (0..max_submodels).try_for_each(|_| self.cursor.read_u8().map(|_| ()))?;
+        // submodel_mins[10]: FixVector × 10
+        (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
+        // submodel_maxs[10]: FixVector × 10
+        (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
         Ok(())
     }
 
@@ -277,10 +267,10 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][count:u16][points:FixVector×n]
     fn parse_defpoints(&mut self) -> Result<()> {
         let count = self.cursor.read_u16_le()? as usize;
-        for _ in 0..count {
-            let vertex = self.read_fixvector()?;
-            self.model.vertices.push(vertex);
-        }
+        let vertices = (0..count)
+            .map(|_| self.read_fixvector())
+            .collect::<Result<Vec<_>>>()?;
+        self.model.vertices.extend(vertices);
         Ok(())
     }
 
@@ -293,10 +283,9 @@ impl<'a> PofParser<'a> {
         let normal = self.read_fixvector()?;
         let color = self.cursor.read_u16_le()?;
 
-        let mut vertices = Vec::with_capacity(nverts);
-        for _ in 0..nverts {
-            vertices.push(self.cursor.read_u16_le()?);
-        }
+        let vertices = (0..nverts)
+            .map(|_| self.cursor.read_u16_le())
+            .collect::<Result<Vec<_>>>()?;
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
@@ -322,20 +311,18 @@ impl<'a> PofParser<'a> {
         let normal = self.read_fixvector()?;
         let texture_id = self.cursor.read_u16_le()?;
 
-        let mut vertices = Vec::with_capacity(nverts);
-        for _ in 0..nverts {
-            vertices.push(self.cursor.read_u16_le()?);
-        }
+        let vertices = (0..nverts)
+            .map(|_| self.cursor.read_u16_le())
+            .collect::<Result<Vec<_>>>()?;
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
             let _padding = self.cursor.read_u16_le()?;
         }
 
-        let mut uvls = Vec::with_capacity(nverts);
-        for _ in 0..nverts {
-            uvls.push(self.read_uvl()?);
-        }
+        let uvls = (0..nverts)
+            .map(|_| self.read_uvl())
+            .collect::<Result<Vec<_>>>()?;
 
         self.model.polygons.push(Polygon::Textured(TexturedPolygon {
             center,
