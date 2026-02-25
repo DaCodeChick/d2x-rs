@@ -40,9 +40,9 @@
 //! let pof_data = fs::read("pyrogl.pof").unwrap();
 //! let model = PofParser::parse(&pof_data).unwrap();
 //!
-//! // Convert to GLB
+//! // Convert to GLB (geometry only, no textures)
 //! let converter = ModelConverter::new();
-//! let glb_data = converter.pof_to_glb(&model, "Pyro-GL Ship").unwrap();
+//! let glb_data = converter.pof_to_glb(&model, "Pyro-GL Ship", None).unwrap();
 //! fs::write("pyrogl.glb", glb_data).unwrap();
 //! ```
 

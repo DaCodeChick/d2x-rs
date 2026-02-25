@@ -61,6 +61,10 @@ pub struct HamFile {
     vclips: Vec<VClipInfo>,
     robots: Vec<RobotInfo>,
     weapons: Vec<WeaponInfo>,
+    /// Object bitmap indices - maps object bitmap IDs to PIG bitmap indices
+    obj_bitmap_indices: Vec<BitmapIndex>,
+    /// Object bitmap pointers - indirection array for texture lookups
+    obj_bitmap_pointers: Vec<u16>,
 }
 
 impl HamFile {
@@ -154,8 +158,51 @@ impl HamFile {
             weapons.push(parse_weapon_info(&mut cursor, version)?);
         }
 
-        // Skip remaining sections (powerups, models, gauges, etc.) for now
-        // A complete implementation would parse all sections
+        // Skip powerups section
+        let powerup_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(powerup_count * 16)?; // tPowerupTypeInfo size
+
+        // Skip polygon models section
+        let model_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(model_count * 734)?; // CPolyModel size (approximate)
+
+        // Skip model data for each model
+        for _ in 0..model_count {
+            let model_data_size = cursor.read_i32_le()? as usize;
+            cursor.skip_bytes(model_data_size)?;
+        }
+
+        // Skip dying and dead model arrays
+        cursor.skip_bytes(model_count * 4)?; // dying models (i32 array)
+        cursor.skip_bytes(model_count * 4)?; // dead models (i32 array)
+
+        // Skip cockpit gauges
+        let gauge_count = cursor.read_i32_le()? as usize;
+        cursor.skip_bytes(gauge_count * 2)?; // hires gauge indices (tBitmapIndex array)
+        cursor.skip_bytes(gauge_count * 2)?; // lores gauge indices (tBitmapIndex array)
+
+        // Parse object bitmaps section
+        let obj_bitmap_count = cursor.read_i32_le()? as usize;
+        validate_max(
+            obj_bitmap_count,
+            1000,
+            "object bitmap count",
+            "MAX_OBJ_BITMAPS",
+        )?;
+
+        let mut obj_bitmap_indices = Vec::with_capacity(obj_bitmap_count);
+        for _ in 0..obj_bitmap_count {
+            obj_bitmap_indices.push(BitmapIndex {
+                index: cursor.read_u16_le()?,
+            });
+        }
+
+        let mut obj_bitmap_pointers = Vec::with_capacity(obj_bitmap_count);
+        for _ in 0..obj_bitmap_count {
+            obj_bitmap_pointers.push(cursor.read_u16_le()?);
+        }
+
+        // Skip remaining sections (player ship, cockpits, etc.)
 
         Ok(HamFile {
             version,
@@ -165,6 +212,8 @@ impl HamFile {
             vclips,
             robots,
             weapons,
+            obj_bitmap_indices,
+            obj_bitmap_pointers,
         })
     }
 
@@ -196,6 +245,38 @@ impl HamFile {
     /// Returns alternate sound indices.
     pub fn alt_sound_indices(&self) -> &[u8] {
         &self.alt_sound_indices
+    }
+
+    /// Returns object bitmap indices.
+    ///
+    /// These map object bitmap IDs to PIG file bitmap indices.
+    pub fn obj_bitmap_indices(&self) -> &[BitmapIndex] {
+        &self.obj_bitmap_indices
+    }
+
+    /// Returns object bitmap pointers.
+    ///
+    /// This is an indirection array used for texture lookups.
+    /// For POF models: `obj_bitmap_pointers[first_texture + texture_id]` gives
+    /// an index into `obj_bitmap_indices`.
+    pub fn obj_bitmap_pointers(&self) -> &[u16] {
+        &self.obj_bitmap_pointers
+    }
+
+    /// Look up a PIG bitmap index for a given texture slot.
+    ///
+    /// This performs the texture mapping: texture_slot → obj_bitmap_pointers → obj_bitmap_indices
+    ///
+    /// # Arguments
+    ///
+    /// * `texture_slot` - Texture slot index (typically `first_texture + texture_id` from POF)
+    ///
+    /// # Returns
+    ///
+    /// The bitmap index in the PIG file, or None if the slot is out of range.
+    pub fn lookup_texture(&self, texture_slot: usize) -> Option<u16> {
+        let pointer_index = *self.obj_bitmap_pointers.get(texture_slot)? as usize;
+        Some(self.obj_bitmap_indices.get(pointer_index)?.index)
     }
 
     /// Returns video clip definitions.
