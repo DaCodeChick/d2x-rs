@@ -61,7 +61,7 @@ use crate::pig::PigFile;
 use base64::{Engine as _, engine::general_purpose};
 use gltf_json as json;
 use gltf_json::validation::USize64;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
 /// Provides texture data for level conversion.
@@ -98,6 +98,40 @@ impl LevelTextureProvider {
 
 /// Converts Descent level geometry to glTF/GLB format.
 pub struct LevelConverter;
+
+/// Accumulated geometry data for level conversion.
+struct GeometryData {
+    positions: Vec<f32>,
+    normals: Vec<f32>,
+    uvs: Vec<f32>,
+    indices: Vec<u32>,
+    material_indices: Vec<u32>,
+}
+
+impl GeometryData {
+    /// Create a new empty geometry data accumulator.
+    fn new() -> Self {
+        Self {
+            positions: Vec::new(),
+            normals: Vec::new(),
+            uvs: Vec::new(),
+            indices: Vec::new(),
+            material_indices: Vec::new(),
+        }
+    }
+}
+
+/// Buffer layout information for glTF structure.
+struct BufferLayout {
+    positions_offset: usize,
+    positions_length: usize,
+    normals_offset: usize,
+    normals_length: usize,
+    uvs_offset: usize,
+    uvs_length: usize,
+    indices_offset: usize,
+    indices_length: usize,
+}
 
 impl LevelConverter {
     /// Create a new level converter.
@@ -152,21 +186,25 @@ impl LevelConverter {
         let palette = texture_provider.map(|p| p.palette());
 
         // Build geometry data
-        let (positions, normals, uvs, indices, material_indices) =
-            self.build_geometry(level, palette)?;
+        let geometry = self.build_geometry(level, palette)?;
 
         // Build binary buffer
-        let buffer_data = self.build_buffer(&positions, &normals, &uvs, &indices)?;
+        let buffer_data = self.build_buffer(
+            &geometry.positions,
+            &geometry.normals,
+            &geometry.uvs,
+            &geometry.indices,
+        )?;
 
         // Build glTF JSON
         let gltf_json = self.build_gltf_json(
             name,
             &buffer_data,
-            &positions,
-            &normals,
-            &uvs,
-            &indices,
-            &material_indices,
+            &geometry.positions,
+            &geometry.normals,
+            &geometry.uvs,
+            &geometry.indices,
+            &geometry.material_indices,
             &texture_images,
             palette,
         )?;
@@ -186,71 +224,72 @@ impl LevelConverter {
         level: &Level,
         provider: &LevelTextureProvider,
     ) -> Result<HashMap<u16, String>> {
-        let mut texture_images: HashMap<u16, String> = HashMap::new();
-        let texture_converter = TextureConverter::new(provider.palette());
+        let texture_ids = self.collect_texture_ids(level);
+        self.convert_textures_to_data_uris(&texture_ids, provider)
+    }
 
-        // Collect unique texture IDs from all segments
-        let mut texture_ids: Vec<u16> = Vec::new();
-        for segment in &level.segments {
-            for side in &segment.sides {
-                // Check if side has a child (solid wall)
-                let side_idx = segment
+    /// Collect all unique texture IDs from solid walls.
+    fn collect_texture_ids(&self, level: &Level) -> HashSet<u16> {
+        level
+            .segments
+            .iter()
+            .flat_map(|segment| {
+                segment
                     .sides
                     .iter()
-                    .position(|s| std::ptr::eq(s, side))
-                    .unwrap();
-                if segment.children[side_idx] != -1 {
-                    continue; // Skip non-solid sides
-                }
+                    .enumerate()
+                    .filter(|(idx, _)| Self::is_solid_wall(segment, *idx))
+                    .flat_map(|(_, side)| [side.base_texture, side.overlay_texture])
+                    .filter(|&tex_id| tex_id != 0)
+            })
+            .collect()
+    }
 
-                // Add base texture
-                if side.base_texture != 0 && !texture_ids.contains(&side.base_texture) {
-                    texture_ids.push(side.base_texture);
-                }
+    /// Check if a side is a solid wall (not an open passage).
+    const fn is_solid_wall(segment: &Segment, side_idx: usize) -> bool {
+        segment.children[side_idx] == -1
+    }
 
-                // Add overlay texture
-                if side.overlay_texture != 0 && !texture_ids.contains(&side.overlay_texture) {
-                    texture_ids.push(side.overlay_texture);
-                }
-            }
-        }
+    /// Convert texture IDs to PNG data URIs.
+    fn convert_textures_to_data_uris(
+        &self,
+        texture_ids: &HashSet<u16>,
+        provider: &LevelTextureProvider,
+    ) -> Result<HashMap<u16, String>> {
+        let texture_converter = TextureConverter::new(provider.palette());
+        let mut texture_images = HashMap::new();
 
-        // Convert each unique texture to PNG
-        for texture_id in texture_ids {
-            // Look up texture in HAM
-            if let Some(bitmap_index) = provider.ham().lookup_texture(texture_id as usize) {
-                // Get bitmap from PIG by index
-                if let Some(bitmap_header) = provider.pig().get_by_index(bitmap_index as usize) {
-                    let bitmap_name = &bitmap_header.name;
-
-                    // Convert to PNG
-                    if let Ok(png_data) = texture_converter.pig_to_png(provider.pig(), bitmap_name)
-                    {
-                        // Encode as base64 data URI
-                        let base64_data = general_purpose::STANDARD.encode(&png_data);
-                        let data_uri = format!("data:image/png;base64,{}", base64_data);
-                        texture_images.insert(texture_id, data_uri);
-                    }
-                }
+        for &texture_id in texture_ids {
+            if let Some(data_uri) =
+                self.convert_single_texture(texture_id, provider, &texture_converter)
+            {
+                texture_images.insert(texture_id, data_uri);
             }
         }
 
         Ok(texture_images)
     }
 
-    /// Build geometry data from level segments.
-    #[allow(clippy::type_complexity)]
-    fn build_geometry(
+    /// Convert a single texture ID to a PNG data URI.
+    fn convert_single_texture(
         &self,
-        level: &Level,
-        _palette: Option<&Palette>,
-    ) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>, Vec<u32>)> {
-        let mut positions: Vec<f32> = Vec::new();
-        let mut normals: Vec<f32> = Vec::new();
-        let mut uvs: Vec<f32> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-        let mut material_indices: Vec<u32> = Vec::new();
+        texture_id: u16,
+        provider: &LevelTextureProvider,
+        converter: &TextureConverter,
+    ) -> Option<String> {
+        let bitmap_index = provider.ham().lookup_texture(texture_id as usize)?;
+        let bitmap_header = provider.pig().get_by_index(bitmap_index as usize)?;
+        let png_data = converter
+            .pig_to_png(provider.pig(), &bitmap_header.name)
+            .ok()?;
 
+        let base64_data = general_purpose::STANDARD.encode(&png_data);
+        Some(format!("data:image/png;base64,{}", base64_data))
+    }
+
+    /// Build geometry data from level segments.
+    fn build_geometry(&self, level: &Level, _palette: Option<&Palette>) -> Result<GeometryData> {
+        let mut geometry = GeometryData::new();
         let mut vertex_offset: u32 = 0;
 
         for segment in &level.segments {
@@ -268,14 +307,14 @@ impl LevelConverter {
                     self.build_side_geometry(&side_verts, side)?;
 
                 // Add to buffers
-                positions.extend(side_pos);
-                normals.extend(side_norms);
-                uvs.extend(side_uvs);
+                geometry.positions.extend(side_pos);
+                geometry.normals.extend(side_norms);
+                geometry.uvs.extend(side_uvs);
 
                 // Adjust indices for current vertex offset
-                for idx in side_inds {
-                    indices.push(idx + vertex_offset);
-                }
+                geometry
+                    .indices
+                    .extend(side_inds.iter().map(|idx| idx + vertex_offset));
 
                 // Material index (base texture ID)
                 let material_id = if side.base_texture != 0 {
@@ -285,20 +324,24 @@ impl LevelConverter {
                 };
 
                 // Add material index for each triangle
-                let triangle_count = if side.side_type == SideType::Quad {
-                    2
-                } else {
-                    1
-                };
-                for _ in 0..triangle_count {
-                    material_indices.push(material_id);
-                }
+                let triangle_count = Self::triangle_count_for_side_type(side.side_type);
+                geometry
+                    .material_indices
+                    .extend(std::iter::repeat_n(material_id, triangle_count));
 
                 vertex_offset += side_verts.len() as u32;
             }
         }
 
-        Ok((positions, normals, uvs, indices, material_indices))
+        Ok(geometry)
+    }
+
+    /// Get the number of triangles for a side type.
+    const fn triangle_count_for_side_type(side_type: SideType) -> usize {
+        match side_type {
+            SideType::Quad => 2,
+            SideType::Tri02 | SideType::Tri13 => 1,
+        }
     }
 
     /// Get vertex positions for a side.
@@ -308,21 +351,19 @@ impl LevelConverter {
         side: &Side,
         level_vertices: &[FixVector],
     ) -> Result<Vec<FixVector>> {
-        let mut verts = Vec::new();
-        for &corner_idx in &side.corners {
-            if corner_idx == 0xFF {
-                break; // Unused corner
-            }
-            let vert_idx = segment.vertices[corner_idx as usize] as usize;
-            if vert_idx >= level_vertices.len() {
-                return Err(AssetError::InvalidLevelFormat(format!(
-                    "Vertex index {} out of bounds",
-                    vert_idx
-                )));
-            }
-            verts.push(level_vertices[vert_idx]);
-        }
-        Ok(verts)
+        side.corners
+            .iter()
+            .take_while(|&&idx| idx != 0xFF)
+            .map(|&corner_idx| {
+                let vert_idx = segment.vertices[corner_idx as usize] as usize;
+                level_vertices.get(vert_idx).copied().ok_or_else(|| {
+                    AssetError::InvalidLevelFormat(format!(
+                        "Vertex index {} out of bounds",
+                        vert_idx
+                    ))
+                })
+            })
+            .collect()
     }
 
     /// Build geometry for a single side (quad or triangle).
@@ -332,79 +373,85 @@ impl LevelConverter {
         vertices: &[FixVector],
         side: &Side,
     ) -> Result<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>)> {
-        let mut positions: Vec<f32> = Vec::new();
-        let mut normals: Vec<f32> = Vec::new();
-        let mut uvs: Vec<f32> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
-
-        // Convert vertices to f32
-        for vert in vertices {
-            let [x, y, z] = vert.to_f32();
-            positions.push(x);
-            positions.push(y);
-            positions.push(z);
-        }
-
-        // Calculate normal (cross product of two edges)
-        if vertices.len() >= 3 {
-            let v0 = vertices[0].to_f32();
-            let v1 = vertices[1].to_f32();
-            let v2 = vertices[2].to_f32();
-
-            // Edge vectors
-            let e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]);
-            let e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]);
-
-            // Cross product
-            let nx = e1.1 * e2.2 - e1.2 * e2.1;
-            let ny = e1.2 * e2.0 - e1.0 * e2.2;
-            let nz = e1.0 * e2.1 - e1.1 * e2.0;
-
-            // Normalize
-            let len = (nx * nx + ny * ny + nz * nz).sqrt();
-            let (nx, ny, nz) = if len > 0.0 {
-                (nx / len, ny / len, nz / len)
-            } else {
-                (0.0, 0.0, 1.0)
-            };
-
-            // Same normal for all vertices
-            for _ in 0..vertices.len() {
-                normals.push(nx);
-                normals.push(ny);
-                normals.push(nz);
-            }
-        }
-
-        // UV coordinates from side.uvls
-        for i in 0..vertices.len() {
-            let uvl = if i < SIDE_CORNER_COUNT {
-                side.uvls[i]
-            } else {
-                Uvl::default()
-            };
-            let [u, v, _l] = uvl.to_f32();
-            uvs.push(u);
-            uvs.push(v);
-        }
-
-        // Build indices based on side type
-        match side.side_type {
-            SideType::Quad => {
-                // Two triangles: 0-1-2, 0-2-3
-                indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
-            }
-            SideType::Tri02 => {
-                // One triangle: 0-1-2
-                indices.extend_from_slice(&[0, 1, 2]);
-            }
-            SideType::Tri13 => {
-                // One triangle: 1-2-3
-                indices.extend_from_slice(&[1, 2, 3]);
-            }
-        }
+        let positions = Self::build_positions(vertices);
+        let normals = Self::build_normals(vertices);
+        let uvs = Self::build_uvs(vertices, side);
+        let indices = Self::build_indices(side.side_type);
 
         Ok((positions, normals, uvs, indices))
+    }
+
+    /// Convert vertex positions from FixVector to f32.
+    fn build_positions(vertices: &[FixVector]) -> Vec<f32> {
+        vertices
+            .iter()
+            .flat_map(|vert| {
+                let [x, y, z] = vert.to_f32();
+                [x, y, z]
+            })
+            .collect()
+    }
+
+    /// Calculate face normal and replicate for all vertices (flat shading).
+    fn build_normals(vertices: &[FixVector]) -> Vec<f32> {
+        if vertices.len() < 3 {
+            return Vec::new();
+        }
+
+        let normal = Self::calculate_face_normal(vertices);
+        std::iter::repeat_n(normal, vertices.len())
+            .flatten()
+            .collect()
+    }
+
+    /// Calculate face normal using cross product of first two edges.
+    fn calculate_face_normal(vertices: &[FixVector]) -> [f32; 3] {
+        debug_assert!(vertices.len() >= 3);
+
+        let v0 = vertices[0].to_f32();
+        let v1 = vertices[1].to_f32();
+        let v2 = vertices[2].to_f32();
+
+        // Edge vectors
+        let e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+        let e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+
+        // Cross product
+        let nx = e1[1] * e2[2] - e1[2] * e2[1];
+        let ny = e1[2] * e2[0] - e1[0] * e2[2];
+        let nz = e1[0] * e2[1] - e1[1] * e2[0];
+
+        // Normalize
+        let len = (nx * nx + ny * ny + nz * nz).sqrt();
+        if len > 0.0 {
+            [nx / len, ny / len, nz / len]
+        } else {
+            [0.0, 0.0, 1.0] // Fallback for degenerate triangles
+        }
+    }
+
+    /// Extract UV coordinates from side data.
+    fn build_uvs(vertices: &[FixVector], side: &Side) -> Vec<f32> {
+        (0..vertices.len())
+            .flat_map(|i| {
+                let uvl = if i < SIDE_CORNER_COUNT {
+                    side.uvls[i]
+                } else {
+                    Uvl::default()
+                };
+                let [u, v, _l] = uvl.to_f32();
+                [u, v]
+            })
+            .collect()
+    }
+
+    /// Generate triangle indices based on side type.
+    fn build_indices(side_type: SideType) -> Vec<u32> {
+        match side_type {
+            SideType::Quad => vec![0, 1, 2, 0, 2, 3],
+            SideType::Tri02 => vec![0, 1, 2],
+            SideType::Tri13 => vec![1, 2, 3],
+        }
     }
 
     /// Build binary buffer containing all geometry data.
@@ -423,11 +470,7 @@ impl LevelConverter {
                 .write_all(&pos.to_le_bytes())
                 .map_err(|e| AssetError::Other(format!("Failed to write positions: {}", e)))?;
         }
-
-        // Pad to 4-byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(0);
-        }
+        Self::align_buffer_to_4_bytes(&mut buffer);
 
         // Write normals (VEC3 float)
         for &norm in normals {
@@ -435,11 +478,7 @@ impl LevelConverter {
                 .write_all(&norm.to_le_bytes())
                 .map_err(|e| AssetError::Other(format!("Failed to write normals: {}", e)))?;
         }
-
-        // Pad to 4-byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(0);
-        }
+        Self::align_buffer_to_4_bytes(&mut buffer);
 
         // Write UVs (VEC2 float)
         for &uv in uvs {
@@ -447,11 +486,7 @@ impl LevelConverter {
                 .write_all(&uv.to_le_bytes())
                 .map_err(|e| AssetError::Other(format!("Failed to write UVs: {}", e)))?;
         }
-
-        // Pad to 4-byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(0);
-        }
+        Self::align_buffer_to_4_bytes(&mut buffer);
 
         // Write indices (SCALAR u32)
         for &idx in indices {
@@ -463,30 +498,20 @@ impl LevelConverter {
         Ok(buffer)
     }
 
-    /// Build glTF JSON structure.
-    #[allow(clippy::too_many_arguments)]
-    fn build_gltf_json(
-        &self,
-        name: &str,
-        buffer_data: &[u8],
+    /// Align buffer to 4-byte boundary with zero padding.
+    fn align_buffer_to_4_bytes(buffer: &mut Vec<u8>) {
+        while !buffer.len().is_multiple_of(4) {
+            buffer.push(0);
+        }
+    }
+
+    /// Calculate buffer view offsets and lengths.
+    fn calculate_buffer_layout(
         positions: &[f32],
         normals: &[f32],
         uvs: &[f32],
         indices: &[u32],
-        material_indices: &[u32],
-        texture_images: &HashMap<u16, String>,
-        palette: Option<&Palette>,
-    ) -> Result<json::Root> {
-        let mut root = json::Root {
-            asset: json::Asset {
-                version: "2.0".to_string(),
-                generator: Some("d2x-rs level converter".to_string()),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        // Calculate buffer view offsets
+    ) -> BufferLayout {
         let positions_byte_length = positions.len() * 4;
         let normals_byte_length = normals.len() * 4;
         let uvs_byte_length = uvs.len() * 4;
@@ -497,145 +522,180 @@ impl LevelConverter {
         let uvs_offset = (normals_offset + normals_byte_length).div_ceil(4) * 4;
         let indices_offset = (uvs_offset + uvs_byte_length).div_ceil(4) * 4;
 
-        // Buffer
-        root.buffers.push(json::Buffer {
+        BufferLayout {
+            positions_offset,
+            positions_length: positions_byte_length,
+            normals_offset,
+            normals_length: normals_byte_length,
+            uvs_offset,
+            uvs_length: uvs_byte_length,
+            indices_offset,
+            indices_length: indices_byte_length,
+        }
+    }
+
+    /// Create buffer and buffer views for glTF.
+    fn create_buffer_and_views(
+        name: &str,
+        buffer_data: &[u8],
+        layout: &BufferLayout,
+    ) -> (json::Buffer, Vec<json::buffer::View>) {
+        let buffer = json::Buffer {
             name: Some(format!("{} - Buffer", name)),
             byte_length: USize64::from(buffer_data.len()),
             uri: None,
             extensions: Default::default(),
             extras: Default::default(),
-        });
+        };
 
-        // Buffer views
-        root.buffer_views.push(json::buffer::View {
-            name: Some(format!("{} - Positions BufferView", name)),
-            buffer: json::Index::new(0),
-            byte_offset: Some(USize64::from(positions_offset)),
-            byte_length: USize64::from(positions_byte_length),
-            byte_stride: None,
-            target: Some(json::validation::Checked::Valid(
-                json::buffer::Target::ArrayBuffer,
-            )),
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
+        let views = vec![
+            json::buffer::View {
+                name: Some(format!("{} - Positions BufferView", name)),
+                buffer: json::Index::new(0),
+                byte_offset: Some(USize64::from(layout.positions_offset)),
+                byte_length: USize64::from(layout.positions_length),
+                byte_stride: None,
+                target: Some(json::validation::Checked::Valid(
+                    json::buffer::Target::ArrayBuffer,
+                )),
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::buffer::View {
+                name: Some(format!("{} - Normals BufferView", name)),
+                buffer: json::Index::new(0),
+                byte_offset: Some(USize64::from(layout.normals_offset)),
+                byte_length: USize64::from(layout.normals_length),
+                byte_stride: None,
+                target: Some(json::validation::Checked::Valid(
+                    json::buffer::Target::ArrayBuffer,
+                )),
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::buffer::View {
+                name: Some(format!("{} - UVs BufferView", name)),
+                buffer: json::Index::new(0),
+                byte_offset: Some(USize64::from(layout.uvs_offset)),
+                byte_length: USize64::from(layout.uvs_length),
+                byte_stride: None,
+                target: Some(json::validation::Checked::Valid(
+                    json::buffer::Target::ArrayBuffer,
+                )),
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::buffer::View {
+                name: Some(format!("{} - Indices BufferView", name)),
+                buffer: json::Index::new(0),
+                byte_offset: Some(USize64::from(layout.indices_offset)),
+                byte_length: USize64::from(layout.indices_length),
+                byte_stride: None,
+                target: Some(json::validation::Checked::Valid(
+                    json::buffer::Target::ElementArrayBuffer,
+                )),
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+        ];
 
-        root.buffer_views.push(json::buffer::View {
-            name: Some(format!("{} - Normals BufferView", name)),
-            buffer: json::Index::new(0),
-            byte_offset: Some(USize64::from(normals_offset)),
-            byte_length: USize64::from(normals_byte_length),
-            byte_stride: None,
-            target: Some(json::validation::Checked::Valid(
-                json::buffer::Target::ArrayBuffer,
-            )),
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
+        (buffer, views)
+    }
 
-        root.buffer_views.push(json::buffer::View {
-            name: Some(format!("{} - UVs BufferView", name)),
-            buffer: json::Index::new(0),
-            byte_offset: Some(USize64::from(uvs_offset)),
-            byte_length: USize64::from(uvs_byte_length),
-            byte_stride: None,
-            target: Some(json::validation::Checked::Valid(
-                json::buffer::Target::ArrayBuffer,
-            )),
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
+    /// Create accessors for glTF geometry data.
+    fn create_accessors(
+        name: &str,
+        positions: &[f32],
+        normals: &[f32],
+        uvs: &[f32],
+        indices: &[u32],
+        min_pos: Vec<f32>,
+        max_pos: Vec<f32>,
+    ) -> Vec<json::Accessor> {
+        vec![
+            json::Accessor {
+                name: Some(format!("{} - Positions", name)),
+                buffer_view: Some(json::Index::new(0)),
+                byte_offset: Some(USize64::from(0usize)),
+                count: USize64::from(positions.len() / 3),
+                component_type: json::validation::Checked::Valid(
+                    json::accessor::GenericComponentType(json::accessor::ComponentType::F32),
+                ),
+                type_: json::validation::Checked::Valid(json::accessor::Type::Vec3),
+                min: Some(json::Value::from(min_pos)),
+                max: Some(json::Value::from(max_pos)),
+                normalized: false,
+                sparse: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::Accessor {
+                name: Some(format!("{} - Normals", name)),
+                buffer_view: Some(json::Index::new(1)),
+                byte_offset: Some(USize64::from(0usize)),
+                count: USize64::from(normals.len() / 3),
+                component_type: json::validation::Checked::Valid(
+                    json::accessor::GenericComponentType(json::accessor::ComponentType::F32),
+                ),
+                type_: json::validation::Checked::Valid(json::accessor::Type::Vec3),
+                min: None,
+                max: None,
+                normalized: false,
+                sparse: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::Accessor {
+                name: Some(format!("{} - UVs", name)),
+                buffer_view: Some(json::Index::new(2)),
+                byte_offset: Some(USize64::from(0usize)),
+                count: USize64::from(uvs.len() / 2),
+                component_type: json::validation::Checked::Valid(
+                    json::accessor::GenericComponentType(json::accessor::ComponentType::F32),
+                ),
+                type_: json::validation::Checked::Valid(json::accessor::Type::Vec2),
+                min: None,
+                max: None,
+                normalized: false,
+                sparse: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+            json::Accessor {
+                name: Some(format!("{} - Indices", name)),
+                buffer_view: Some(json::Index::new(3)),
+                byte_offset: Some(USize64::from(0usize)),
+                count: USize64::from(indices.len()),
+                component_type: json::validation::Checked::Valid(
+                    json::accessor::GenericComponentType(json::accessor::ComponentType::U32),
+                ),
+                type_: json::validation::Checked::Valid(json::accessor::Type::Scalar),
+                min: None,
+                max: None,
+                normalized: false,
+                sparse: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            },
+        ]
+    }
 
-        root.buffer_views.push(json::buffer::View {
-            name: Some(format!("{} - Indices BufferView", name)),
-            buffer: json::Index::new(0),
-            byte_offset: Some(USize64::from(indices_offset)),
-            byte_length: USize64::from(indices_byte_length),
-            byte_stride: None,
-            target: Some(json::validation::Checked::Valid(
-                json::buffer::Target::ElementArrayBuffer,
-            )),
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
+    /// Create images and textures from texture data URIs.
+    fn create_images_and_textures(
+        name: &str,
+        texture_images: &HashMap<u16, String>,
+    ) -> (
+        Vec<json::Image>,
+        Vec<json::Texture>,
+        HashMap<u16, json::Index<json::Texture>>,
+    ) {
+        let mut images = Vec::new();
+        let mut textures = Vec::new();
+        let mut texture_index_map = HashMap::new();
 
-        // Compute bounds for positions
-        let (min_pos, max_pos) = self.compute_bounds(positions);
-
-        // Accessors
-        root.accessors.push(json::Accessor {
-            name: Some(format!("{} - Positions", name)),
-            buffer_view: Some(json::Index::new(0)),
-            byte_offset: Some(USize64::from(0usize)),
-            count: USize64::from(positions.len() / 3),
-            component_type: json::validation::Checked::Valid(json::accessor::GenericComponentType(
-                json::accessor::ComponentType::F32,
-            )),
-            type_: json::validation::Checked::Valid(json::accessor::Type::Vec3),
-            min: Some(json::Value::from(min_pos)),
-            max: Some(json::Value::from(max_pos)),
-            normalized: false,
-            sparse: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        root.accessors.push(json::Accessor {
-            name: Some(format!("{} - Normals", name)),
-            buffer_view: Some(json::Index::new(1)),
-            byte_offset: Some(USize64::from(0usize)),
-            count: USize64::from(normals.len() / 3),
-            component_type: json::validation::Checked::Valid(json::accessor::GenericComponentType(
-                json::accessor::ComponentType::F32,
-            )),
-            type_: json::validation::Checked::Valid(json::accessor::Type::Vec3),
-            min: None,
-            max: None,
-            normalized: false,
-            sparse: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        root.accessors.push(json::Accessor {
-            name: Some(format!("{} - UVs", name)),
-            buffer_view: Some(json::Index::new(2)),
-            byte_offset: Some(USize64::from(0usize)),
-            count: USize64::from(uvs.len() / 2),
-            component_type: json::validation::Checked::Valid(json::accessor::GenericComponentType(
-                json::accessor::ComponentType::F32,
-            )),
-            type_: json::validation::Checked::Valid(json::accessor::Type::Vec2),
-            min: None,
-            max: None,
-            normalized: false,
-            sparse: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        root.accessors.push(json::Accessor {
-            name: Some(format!("{} - Indices", name)),
-            buffer_view: Some(json::Index::new(3)),
-            byte_offset: Some(USize64::from(0usize)),
-            count: USize64::from(indices.len()),
-            component_type: json::validation::Checked::Valid(json::accessor::GenericComponentType(
-                json::accessor::ComponentType::U32,
-            )),
-            type_: json::validation::Checked::Valid(json::accessor::Type::Scalar),
-            min: None,
-            max: None,
-            normalized: false,
-            sparse: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        });
-
-        // Create images and textures
-        let mut texture_index_map: HashMap<u16, json::Index<json::Texture>> = HashMap::new();
         for (&texture_id, data_uri) in texture_images {
-            let image_idx = root.images.len() as u32;
-            root.images.push(json::Image {
+            let image_idx = images.len() as u32;
+            images.push(json::Image {
                 name: Some(format!("{} - Texture {}", name, texture_id)),
                 uri: Some(data_uri.clone()),
                 mime_type: None,
@@ -644,8 +704,8 @@ impl LevelConverter {
                 extras: Default::default(),
             });
 
-            let texture_idx = root.textures.len() as u32;
-            root.textures.push(json::Texture {
+            let texture_idx = textures.len() as u32;
+            textures.push(json::Texture {
                 name: Some(format!("{} - Texture {}", name, texture_id)),
                 sampler: None,
                 source: json::Index::new(image_idx),
@@ -656,7 +716,17 @@ impl LevelConverter {
             texture_index_map.insert(texture_id, json::Index::new(texture_idx));
         }
 
-        // Create materials for each unique texture ID
+        (images, textures, texture_index_map)
+    }
+
+    /// Create materials for each unique texture ID.
+    fn create_materials(
+        name: &str,
+        material_indices: &[u32],
+        texture_index_map: &HashMap<u16, json::Index<json::Texture>>,
+        palette: Option<&Palette>,
+    ) -> (Vec<json::Material>, HashMap<u16, u32>) {
+        // Get unique texture IDs
         let unique_texture_ids: Vec<u16> = {
             let mut ids: Vec<u16> = material_indices.iter().map(|&id| id as u16).collect();
             ids.sort_unstable();
@@ -664,9 +734,11 @@ impl LevelConverter {
             ids
         };
 
-        let mut material_id_to_index: HashMap<u16, u32> = HashMap::new();
+        let mut materials = Vec::new();
+        let mut material_id_to_index = HashMap::new();
+
         for texture_id in unique_texture_ids {
-            let material_idx = root.materials.len() as u32;
+            let material_idx = materials.len() as u32;
             material_id_to_index.insert(texture_id, material_idx);
 
             let pbr = if let Some(&texture_idx) = texture_index_map.get(&texture_id) {
@@ -709,7 +781,7 @@ impl LevelConverter {
                 }
             };
 
-            root.materials.push(json::Material {
+            materials.push(json::Material {
                 name: Some(format!("{} - Material {}", name, texture_id)),
                 pbr_metallic_roughness: pbr,
                 normal_texture: None,
@@ -724,11 +796,14 @@ impl LevelConverter {
             });
         }
 
-        // Create mesh primitives grouped by material
-        let mut primitives: Vec<json::mesh::Primitive> = Vec::new();
+        (materials, material_id_to_index)
+    }
+
+    /// Create mesh with primitives.
+    fn create_mesh(name: &str) -> (json::Mesh, Vec<json::mesh::Primitive>) {
         // TODO: Group triangles by material and create separate primitives
         // For now, create one primitive with default material
-        primitives.push(json::mesh::Primitive {
+        let primitives = vec![json::mesh::Primitive {
             attributes: {
                 let mut map = std::collections::BTreeMap::new();
                 map.insert(
@@ -751,19 +826,22 @@ impl LevelConverter {
             targets: None,
             extensions: Default::default(),
             extras: Default::default(),
-        });
+        }];
 
-        // Mesh
-        root.meshes.push(json::Mesh {
+        let mesh = json::Mesh {
             name: Some(format!("{} - Mesh", name)),
-            primitives,
+            primitives: primitives.clone(),
             weights: None,
             extensions: Default::default(),
             extras: Default::default(),
-        });
+        };
 
-        // Node
-        root.nodes.push(json::Node {
+        (mesh, primitives)
+    }
+
+    /// Create scene hierarchy (node and scene).
+    fn create_scene_hierarchy(name: &str) -> (json::Node, json::Scene) {
+        let node = json::Node {
             name: Some(format!("{} - Node", name)),
             mesh: Some(json::Index::new(0)),
             camera: None,
@@ -776,15 +854,73 @@ impl LevelConverter {
             weights: None,
             extensions: Default::default(),
             extras: Default::default(),
-        });
+        };
 
-        // Scene
-        root.scenes.push(json::Scene {
+        let scene = json::Scene {
             name: Some(format!("{} - Scene", name)),
             nodes: vec![json::Index::new(0)],
             extensions: Default::default(),
             extras: Default::default(),
-        });
+        };
+
+        (node, scene)
+    }
+
+    /// Build glTF JSON structure.
+    #[allow(clippy::too_many_arguments)]
+    fn build_gltf_json(
+        &self,
+        name: &str,
+        buffer_data: &[u8],
+        positions: &[f32],
+        normals: &[f32],
+        uvs: &[f32],
+        indices: &[u32],
+        material_indices: &[u32],
+        texture_images: &HashMap<u16, String>,
+        palette: Option<&Palette>,
+    ) -> Result<json::Root> {
+        let mut root = json::Root {
+            asset: json::Asset {
+                version: "2.0".to_string(),
+                generator: Some("d2x-rs level converter".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // Calculate buffer layout
+        let layout = Self::calculate_buffer_layout(positions, normals, uvs, indices);
+
+        // Create buffer and buffer views
+        let (buffer, views) = Self::create_buffer_and_views(name, buffer_data, &layout);
+        root.buffers.push(buffer);
+        root.buffer_views.extend(views);
+
+        // Compute bounds and create accessors
+        let (min_pos, max_pos) = self.compute_bounds(positions);
+        let accessors =
+            Self::create_accessors(name, positions, normals, uvs, indices, min_pos, max_pos);
+        root.accessors.extend(accessors);
+
+        // Create images and textures
+        let (images, textures, texture_index_map) =
+            Self::create_images_and_textures(name, texture_images);
+        root.images.extend(images);
+        root.textures.extend(textures);
+
+        // Create materials
+        let (materials, _material_id_to_index) =
+            Self::create_materials(name, material_indices, &texture_index_map, palette);
+        root.materials.extend(materials);
+
+        // Create mesh and scene hierarchy
+        let (mesh, _primitives) = Self::create_mesh(name);
+        root.meshes.push(mesh);
+
+        let (node, scene) = Self::create_scene_hierarchy(name);
+        root.nodes.push(node);
+        root.scenes.push(scene);
 
         root.scene = Some(json::Index::new(0));
 

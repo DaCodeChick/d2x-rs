@@ -131,6 +131,17 @@ pub struct ModelConverter {
     generator: String,
 }
 
+/// Tracks buffer views and accessors for a single primitive.
+struct PrimitiveBufferInfo {
+    #[allow(dead_code)]
+    normals_buffer_view_idx: usize,
+    normals_accessor_idx: usize,
+    uvs_accessor_idx: Option<usize>,
+    #[allow(dead_code)]
+    indices_buffer_view_idx: usize,
+    indices_accessor_idx: usize,
+}
+
 impl ModelConverter {
     /// Create a new model converter with default settings.
     pub fn new() -> Self {
@@ -253,110 +264,136 @@ impl ModelConverter {
             ));
         }
 
-        // Convert all vertices from fixed-point to f32
-        let mut positions = Vec::with_capacity(model.vertices.len() * 3);
-        for vertex in &model.vertices {
-            let pos = vertex.to_f32();
-            positions.push(pos[0]);
-            positions.push(pos[1]);
-            positions.push(pos[2]);
-        }
-
-        // Group polygons by material
-        let mut material_groups: HashMap<MaterialKey, Vec<&Polygon>> = HashMap::new();
-        for polygon in &model.polygons {
-            let key = match polygon {
-                Polygon::Flat(poly) => MaterialKey::Flat(poly.color),
-                Polygon::Textured(poly) => MaterialKey::Textured(poly.texture_id),
-            };
-            material_groups.entry(key).or_default().push(polygon);
-        }
-
-        // Convert each material group to a mesh primitive
-        let mut primitives = Vec::new();
-        for (material_key, polygons) in material_groups {
-            let mut indices = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = if with_textures && matches!(material_key, MaterialKey::Textured(_)) {
-                Some(Vec::new())
-            } else {
-                None
-            };
-
-            for polygon in polygons {
-                match polygon {
-                    Polygon::Flat(poly) => {
-                        let normal = poly.normal.to_f32();
-
-                        // Triangulate polygon (simple fan triangulation)
-                        for i in 1..poly.vertices.len() - 1 {
-                            let idx0 = poly.vertices[0] as u32;
-                            let idx1 = poly.vertices[i] as u32;
-                            let idx2 = poly.vertices[i + 1] as u32;
-
-                            indices.push(idx0);
-                            indices.push(idx1);
-                            indices.push(idx2);
-
-                            // Add normals for each vertex in the triangle
-                            for _ in 0..3 {
-                                normals.push(normal[0]);
-                                normals.push(normal[1]);
-                                normals.push(normal[2]);
-                            }
-                        }
-                    }
-                    Polygon::Textured(poly) => {
-                        let normal = poly.normal.to_f32();
-
-                        // Triangulate polygon (simple fan triangulation)
-                        for i in 1..poly.vertices.len() - 1 {
-                            let idx0 = poly.vertices[0] as u32;
-                            let idx1 = poly.vertices[i] as u32;
-                            let idx2 = poly.vertices[i + 1] as u32;
-
-                            indices.push(idx0);
-                            indices.push(idx1);
-                            indices.push(idx2);
-
-                            // Add normals for each vertex in the triangle
-                            for _ in 0..3 {
-                                normals.push(normal[0]);
-                                normals.push(normal[1]);
-                                normals.push(normal[2]);
-                            }
-
-                            // Add UVs for each vertex in the triangle if textures enabled
-                            if let Some(ref mut uvs_vec) = uvs {
-                                let uv0 = poly.uvls[0].to_f32();
-                                let uv1 = poly.uvls[i].to_f32();
-                                let uv2 = poly.uvls[i + 1].to_f32();
-
-                                // Only use U and V components, ignore L (lighting)
-                                uvs_vec.push(uv0[0]);
-                                uvs_vec.push(uv0[1]);
-                                uvs_vec.push(uv1[0]);
-                                uvs_vec.push(uv1[1]);
-                                uvs_vec.push(uv2[0]);
-                                uvs_vec.push(uv2[1]);
-                            }
-                        }
-                    }
-                }
-            }
-
-            primitives.push(MeshPrimitive {
-                material_key,
-                indices,
-                normals,
-                uvs,
-            });
-        }
+        let positions = Self::convert_positions(&model.vertices);
+        let material_groups = Self::group_polygons_by_material(&model.polygons);
+        let primitives = Self::create_primitives_from_groups(material_groups, with_textures)?;
 
         Ok(GeometryData {
             positions,
             primitives,
         })
+    }
+
+    /// Convert vertex positions from FixVector to f32.
+    fn convert_positions(vertices: &[crate::geometry::FixVector]) -> Vec<f32> {
+        vertices
+            .iter()
+            .flat_map(|vertex| {
+                let pos = vertex.to_f32();
+                [pos[0], pos[1], pos[2]]
+            })
+            .collect()
+    }
+
+    /// Group polygons by material key for separate primitives.
+    fn group_polygons_by_material(polygons: &[Polygon]) -> HashMap<MaterialKey, Vec<&Polygon>> {
+        polygons.iter().fold(HashMap::new(), |mut groups, polygon| {
+            let key = match polygon {
+                Polygon::Flat(poly) => MaterialKey::Flat(poly.color),
+                Polygon::Textured(poly) => MaterialKey::Textured(poly.texture_id),
+            };
+            groups.entry(key).or_default().push(polygon);
+            groups
+        })
+    }
+
+    /// Create mesh primitives from material-grouped polygons.
+    fn create_primitives_from_groups(
+        material_groups: HashMap<MaterialKey, Vec<&Polygon>>,
+        with_textures: bool,
+    ) -> Result<Vec<MeshPrimitive>> {
+        material_groups
+            .into_iter()
+            .map(|(material_key, polygons)| {
+                Self::create_primitive_from_polygons(material_key, polygons, with_textures)
+            })
+            .collect()
+    }
+
+    /// Create a single mesh primitive from a group of polygons.
+    fn create_primitive_from_polygons(
+        material_key: MaterialKey,
+        polygons: Vec<&Polygon>,
+        with_textures: bool,
+    ) -> Result<MeshPrimitive> {
+        let mut indices = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = if with_textures && matches!(material_key, MaterialKey::Textured(_)) {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        for polygon in polygons {
+            match polygon {
+                Polygon::Flat(poly) => {
+                    Self::triangulate_flat_polygon(poly, &mut indices, &mut normals);
+                }
+                Polygon::Textured(poly) => {
+                    Self::triangulate_textured_polygon(poly, &mut indices, &mut normals, &mut uvs);
+                }
+            }
+        }
+
+        Ok(MeshPrimitive {
+            material_key,
+            indices,
+            normals,
+            uvs,
+        })
+    }
+
+    /// Triangulate a flat-shaded polygon using fan triangulation.
+    fn triangulate_flat_polygon(
+        poly: &crate::pof::FlatPolygon,
+        indices: &mut Vec<u32>,
+        normals: &mut Vec<f32>,
+    ) {
+        let normal = poly.normal.to_f32();
+
+        // Fan triangulation: connect vertex 0 to each consecutive pair
+        for i in 1..poly.vertices.len() - 1 {
+            indices.extend_from_slice(&[
+                poly.vertices[0] as u32,
+                poly.vertices[i] as u32,
+                poly.vertices[i + 1] as u32,
+            ]);
+
+            // Same normal for all 3 vertices of the triangle (flat shading)
+            normals.extend(std::iter::repeat_n(normal, 3).flatten());
+        }
+    }
+
+    /// Triangulate a textured polygon using fan triangulation.
+    fn triangulate_textured_polygon(
+        poly: &crate::pof::TexturedPolygon,
+        indices: &mut Vec<u32>,
+        normals: &mut Vec<f32>,
+        uvs: &mut Option<Vec<f32>>,
+    ) {
+        let normal = poly.normal.to_f32();
+
+        // Fan triangulation
+        for i in 1..poly.vertices.len() - 1 {
+            indices.extend_from_slice(&[
+                poly.vertices[0] as u32,
+                poly.vertices[i] as u32,
+                poly.vertices[i + 1] as u32,
+            ]);
+
+            // Same normal for all 3 vertices
+            normals.extend(std::iter::repeat_n(normal, 3).flatten());
+
+            // Add UVs if enabled
+            if let Some(uvs_vec) = uvs {
+                let uv0 = poly.uvls[0].to_f32();
+                let uv1 = poly.uvls[i].to_f32();
+                let uv2 = poly.uvls[i + 1].to_f32();
+
+                // Only U and V components (ignore L for lighting)
+                uvs_vec.extend_from_slice(&[uv0[0], uv0[1], uv1[0], uv1[1], uv2[0], uv2[1]]);
+            }
+        }
     }
 
     /// Extract and convert textures from PIG file to PNG format.
@@ -496,6 +533,316 @@ impl ModelConverter {
         Ok(buffer)
     }
 
+    /// Create shared position buffer view and accessor.
+    fn create_positions_buffer_view_and_accessor(
+        name: &str,
+        positions_count: usize,
+        min_pos: Vec<f32>,
+        max_pos: Vec<f32>,
+    ) -> (json::buffer::View, json::Accessor) {
+        let positions_byte_length = positions_count * std::mem::size_of::<f32>();
+
+        let buffer_view = json::buffer::View {
+            buffer: json::Index::new(0),
+            byte_length: USize64::from(positions_byte_length),
+            byte_offset: Some(USize64::from(0usize)),
+            byte_stride: None,
+            target: Some(Valid(json::buffer::Target::ArrayBuffer)),
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Positions", name)),
+        };
+
+        let accessor = json::Accessor {
+            buffer_view: Some(json::Index::new(0)),
+            byte_offset: Some(USize64::from(0usize)),
+            count: USize64::from(positions_count / 3),
+            component_type: Valid(json::accessor::GenericComponentType(
+                json::accessor::ComponentType::F32,
+            )),
+            type_: Valid(json::accessor::Type::Vec3),
+            min: Some(json::Value::from(min_pos)),
+            max: Some(json::Value::from(max_pos)),
+            normalized: false,
+            sparse: None,
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Positions", name)),
+        };
+
+        (buffer_view, accessor)
+    }
+
+    /// Create buffer views and accessors for a single primitive.
+    #[allow(clippy::too_many_arguments)]
+    fn create_primitive_buffer_views_and_accessors(
+        name: &str,
+        prim_index: usize,
+        primitive: &MeshPrimitive,
+        current_offset: &mut usize,
+        buffer_views: &mut Vec<json::buffer::View>,
+        accessors: &mut Vec<json::Accessor>,
+    ) -> PrimitiveBufferInfo {
+        // Normals
+        let normals_byte_length = primitive.normals.len() * std::mem::size_of::<f32>();
+        let normals_offset = *current_offset;
+        *current_offset += normals_byte_length;
+
+        let normals_buffer_view_idx = buffer_views.len();
+        buffer_views.push(json::buffer::View {
+            buffer: json::Index::new(0),
+            byte_length: USize64::from(normals_byte_length),
+            byte_offset: Some(USize64::from(normals_offset)),
+            byte_stride: None,
+            target: Some(Valid(json::buffer::Target::ArrayBuffer)),
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
+        });
+
+        let normals_accessor_idx = accessors.len();
+        accessors.push(json::Accessor {
+            buffer_view: Some(json::Index::new(normals_buffer_view_idx as u32)),
+            byte_offset: Some(USize64::from(0usize)),
+            count: USize64::from(primitive.normals.len() / 3),
+            component_type: Valid(json::accessor::GenericComponentType(
+                json::accessor::ComponentType::F32,
+            )),
+            type_: Valid(json::accessor::Type::Vec3),
+            min: None,
+            max: None,
+            normalized: false,
+            sparse: None,
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
+        });
+
+        // UVs (optional)
+        let uvs_accessor_idx = if let Some(ref uvs) = primitive.uvs {
+            let uvs_byte_length = uvs.len() * std::mem::size_of::<f32>();
+            let uvs_offset = *current_offset;
+            *current_offset += uvs_byte_length;
+
+            let uvs_buffer_view_idx = buffer_views.len();
+            buffer_views.push(json::buffer::View {
+                buffer: json::Index::new(0),
+                byte_length: USize64::from(uvs_byte_length),
+                byte_offset: Some(USize64::from(uvs_offset)),
+                byte_stride: None,
+                target: Some(Valid(json::buffer::Target::ArrayBuffer)),
+                extensions: None,
+                extras: Default::default(),
+                name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
+            });
+
+            let uvs_accessor_idx = accessors.len();
+            accessors.push(json::Accessor {
+                buffer_view: Some(json::Index::new(uvs_buffer_view_idx as u32)),
+                byte_offset: Some(USize64::from(0usize)),
+                count: USize64::from(uvs.len() / 2),
+                component_type: Valid(json::accessor::GenericComponentType(
+                    json::accessor::ComponentType::F32,
+                )),
+                type_: Valid(json::accessor::Type::Vec2),
+                min: None,
+                max: None,
+                normalized: false,
+                sparse: None,
+                extensions: None,
+                extras: Default::default(),
+                name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
+            });
+            Some(uvs_accessor_idx)
+        } else {
+            None
+        };
+
+        // Indices
+        let indices_byte_length = primitive.indices.len() * std::mem::size_of::<u32>();
+        let indices_offset = *current_offset;
+        *current_offset += indices_byte_length;
+
+        let indices_buffer_view_idx = buffer_views.len();
+        buffer_views.push(json::buffer::View {
+            buffer: json::Index::new(0),
+            byte_length: USize64::from(indices_byte_length),
+            byte_offset: Some(USize64::from(indices_offset)),
+            byte_stride: None,
+            target: Some(Valid(json::buffer::Target::ElementArrayBuffer)),
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
+        });
+
+        let indices_accessor_idx = accessors.len();
+        accessors.push(json::Accessor {
+            buffer_view: Some(json::Index::new(indices_buffer_view_idx as u32)),
+            byte_offset: Some(USize64::from(0usize)),
+            count: USize64::from(primitive.indices.len()),
+            component_type: Valid(json::accessor::GenericComponentType(
+                json::accessor::ComponentType::U32,
+            )),
+            type_: Valid(json::accessor::Type::Scalar),
+            min: None,
+            max: None,
+            normalized: false,
+            sparse: None,
+            extensions: None,
+            extras: Default::default(),
+            name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
+        });
+
+        PrimitiveBufferInfo {
+            normals_buffer_view_idx,
+            normals_accessor_idx,
+            uvs_accessor_idx,
+            indices_buffer_view_idx,
+            indices_accessor_idx,
+        }
+    }
+
+    /// Create glTF primitive from geometry primitive and buffer info.
+    fn create_gltf_primitive(
+        buffer_info: &PrimitiveBufferInfo,
+        material_index: Option<json::Index<json::Material>>,
+    ) -> json::mesh::Primitive {
+        let mut attributes = std::collections::BTreeMap::new();
+        attributes.insert(Valid(json::mesh::Semantic::Positions), json::Index::new(0));
+        attributes.insert(
+            Valid(json::mesh::Semantic::Normals),
+            json::Index::new(buffer_info.normals_accessor_idx as u32),
+        );
+        if let Some(uvs_idx) = buffer_info.uvs_accessor_idx {
+            attributes.insert(
+                Valid(json::mesh::Semantic::TexCoords(0)),
+                json::Index::new(uvs_idx as u32),
+            );
+        }
+
+        json::mesh::Primitive {
+            attributes,
+            indices: Some(json::Index::new(buffer_info.indices_accessor_idx as u32)),
+            material: material_index,
+            mode: Valid(json::mesh::Mode::Triangles),
+            targets: None,
+            extensions: None,
+            extras: Default::default(),
+        }
+    }
+
+    /// Create images and textures from texture data URIs.
+    fn create_images_and_textures_for_model(
+        name: &str,
+        texture_images: &HashMap<u16, String>,
+    ) -> (Vec<json::Image>, Vec<json::Texture>, HashMap<u16, usize>) {
+        let mut images = Vec::new();
+        let mut textures = Vec::new();
+        let mut texture_id_to_index = HashMap::new();
+
+        for (&texture_id, data_uri) in texture_images.iter() {
+            let image_index = images.len();
+            images.push(json::Image {
+                uri: Some(data_uri.clone()),
+                mime_type: Some(json::image::MimeType("image/png".to_string())),
+                buffer_view: None,
+                name: Some(format!("{} - Texture {}", name, texture_id)),
+                extensions: None,
+                extras: Default::default(),
+            });
+
+            let texture_index = textures.len();
+            textures.push(json::Texture {
+                sampler: None,
+                source: json::Index::new(image_index as u32),
+                name: Some(format!("{} - Texture {}", name, texture_id)),
+                extensions: None,
+                extras: Default::default(),
+            });
+
+            texture_id_to_index.insert(texture_id, texture_index);
+        }
+
+        (images, textures, texture_id_to_index)
+    }
+
+    /// Create materials from material keys.
+    fn create_materials_for_primitives(
+        name: &str,
+        material_key_to_index: &HashMap<MaterialKey, usize>,
+        texture_id_to_index: &HashMap<u16, usize>,
+        palette: Option<&Palette>,
+    ) -> Vec<json::Material> {
+        let mut materials = vec![None; material_key_to_index.len()];
+
+        for (material_key, &mat_index) in material_key_to_index {
+            let pbr = match material_key {
+                MaterialKey::Textured(texture_id) => {
+                    // Textured material
+                    let base_color_texture =
+                        texture_id_to_index
+                            .get(texture_id)
+                            .map(|&tex_idx| json::texture::Info {
+                                index: json::Index::new(tex_idx as u32),
+                                tex_coord: 0,
+                                extensions: None,
+                                extras: Default::default(),
+                            });
+
+                    json::material::PbrMetallicRoughness {
+                        base_color_factor: json::material::PbrBaseColorFactor([1.0, 1.0, 1.0, 1.0]),
+                        base_color_texture,
+                        metallic_factor: json::material::StrengthFactor(0.0),
+                        roughness_factor: json::material::StrengthFactor(1.0),
+                        metallic_roughness_texture: None,
+                        extensions: None,
+                        extras: Default::default(),
+                    }
+                }
+                MaterialKey::Flat(color_index) => {
+                    // Flat material - convert palette color
+                    let color = if let Some(pal) = palette {
+                        let [r, g, b] = pal.get_rgb8(*color_index as u8);
+                        [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0]
+                    } else {
+                        [0.5, 0.5, 0.5, 1.0] // Gray fallback
+                    };
+
+                    json::material::PbrMetallicRoughness {
+                        base_color_factor: json::material::PbrBaseColorFactor(color),
+                        base_color_texture: None,
+                        metallic_factor: json::material::StrengthFactor(0.0),
+                        roughness_factor: json::material::StrengthFactor(1.0),
+                        metallic_roughness_texture: None,
+                        extensions: None,
+                        extras: Default::default(),
+                    }
+                }
+            };
+
+            let material_name = match material_key {
+                MaterialKey::Textured(id) => format!("{} - Material Tex{}", name, id),
+                MaterialKey::Flat(id) => format!("{} - Material Flat{}", name, id),
+            };
+
+            materials[mat_index] = Some(json::Material {
+                name: Some(material_name),
+                pbr_metallic_roughness: pbr,
+                normal_texture: None,
+                occlusion_texture: None,
+                emissive_texture: None,
+                emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
+                alpha_mode: Valid(json::material::AlphaMode::Opaque),
+                alpha_cutoff: None,
+                double_sided: false,
+                extensions: None,
+                extras: Default::default(),
+            });
+        }
+
+        materials.into_iter().flatten().collect()
+    }
+
     /// Build the glTF JSON structure.
     ///
     /// Creates glTF 2.0 JSON with multiple mesh primitives grouped by material.
@@ -509,179 +856,35 @@ impl ModelConverter {
         palette: Option<&Palette>,
         buffer_length: usize,
     ) -> Result<json::Root> {
-        // Compute bounding box for positions
+        // Compute bounds and create shared positions buffer view/accessor
         let (min_pos, max_pos) = self.compute_bounds(&geometry.positions);
-        let positions_byte_length = geometry.positions.len() * std::mem::size_of::<f32>();
+        let (pos_buffer_view, pos_accessor) = Self::create_positions_buffer_view_and_accessor(
+            name,
+            geometry.positions.len(),
+            min_pos,
+            max_pos,
+        );
 
-        // Track buffer offsets as we lay out data
-        let mut current_offset = positions_byte_length;
-
-        // Build buffer views and accessors for all primitives
-        let mut buffer_views = Vec::new();
-        let mut accessors = Vec::new();
+        // Initialize collections
+        let mut buffer_views = vec![pos_buffer_view];
+        let mut accessors = vec![pos_accessor];
         let mut gltf_primitives = Vec::new();
-
-        // BufferView 0: Positions (shared by all primitives)
-        buffer_views.push(json::buffer::View {
-            buffer: json::Index::new(0),
-            byte_length: USize64::from(positions_byte_length),
-            byte_offset: Some(USize64::from(0usize)),
-            byte_stride: None,
-            target: Some(Valid(json::buffer::Target::ArrayBuffer)),
-            extensions: None,
-            extras: Default::default(),
-            name: Some(format!("{} - Positions", name)),
-        });
-
-        // Accessor 0: Positions (shared)
-        accessors.push(json::Accessor {
-            buffer_view: Some(json::Index::new(0)),
-            byte_offset: Some(USize64::from(0usize)),
-            count: USize64::from(geometry.positions.len() / 3),
-            component_type: Valid(json::accessor::GenericComponentType(
-                json::accessor::ComponentType::F32,
-            )),
-            type_: Valid(json::accessor::Type::Vec3),
-            min: Some(json::Value::from(min_pos)),
-            max: Some(json::Value::from(max_pos)),
-            normalized: false,
-            sparse: None,
-            extensions: None,
-            extras: Default::default(),
-            name: Some(format!("{} - Positions", name)),
-        });
-
-        // Create buffer views and accessors for each primitive
-        // Also build a map from material_key to material index
         let mut material_key_to_index: HashMap<MaterialKey, usize> = HashMap::new();
+        let mut current_offset = geometry.positions.len() * std::mem::size_of::<f32>();
 
+        // Create buffer views, accessors, and primitives for each geometry primitive
         for (prim_index, primitive) in geometry.primitives.iter().enumerate() {
-            let normals_byte_length = primitive.normals.len() * std::mem::size_of::<f32>();
-            let normals_offset = current_offset;
-            current_offset += normals_byte_length;
-
-            let normals_buffer_view_index = buffer_views.len();
-            buffer_views.push(json::buffer::View {
-                buffer: json::Index::new(0),
-                byte_length: USize64::from(normals_byte_length),
-                byte_offset: Some(USize64::from(normals_offset)),
-                byte_stride: None,
-                target: Some(Valid(json::buffer::Target::ArrayBuffer)),
-                extensions: None,
-                extras: Default::default(),
-                name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
-            });
-
-            let normals_accessor_index = accessors.len();
-            accessors.push(json::Accessor {
-                buffer_view: Some(json::Index::new(normals_buffer_view_index as u32)),
-                byte_offset: Some(USize64::from(0usize)),
-                count: USize64::from(primitive.normals.len() / 3),
-                component_type: Valid(json::accessor::GenericComponentType(
-                    json::accessor::ComponentType::F32,
-                )),
-                type_: Valid(json::accessor::Type::Vec3),
-                min: None,
-                max: None,
-                normalized: false,
-                sparse: None,
-                extensions: None,
-                extras: Default::default(),
-                name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
-            });
-
-            // UVs if present
-            let uvs_accessor_index = if let Some(ref uvs) = primitive.uvs {
-                let uvs_byte_length = uvs.len() * std::mem::size_of::<f32>();
-                let uvs_offset = current_offset;
-                current_offset += uvs_byte_length;
-
-                let uvs_buffer_view_index = buffer_views.len();
-                buffer_views.push(json::buffer::View {
-                    buffer: json::Index::new(0),
-                    byte_length: USize64::from(uvs_byte_length),
-                    byte_offset: Some(USize64::from(uvs_offset)),
-                    byte_stride: None,
-                    target: Some(Valid(json::buffer::Target::ArrayBuffer)),
-                    extensions: None,
-                    extras: Default::default(),
-                    name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
-                });
-
-                let uvs_accessor_idx = accessors.len();
-                accessors.push(json::Accessor {
-                    buffer_view: Some(json::Index::new(uvs_buffer_view_index as u32)),
-                    byte_offset: Some(USize64::from(0usize)),
-                    count: USize64::from(uvs.len() / 2),
-                    component_type: Valid(json::accessor::GenericComponentType(
-                        json::accessor::ComponentType::F32,
-                    )),
-                    type_: Valid(json::accessor::Type::Vec2),
-                    min: None,
-                    max: None,
-                    normalized: false,
-                    sparse: None,
-                    extensions: None,
-                    extras: Default::default(),
-                    name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
-                });
-                Some(uvs_accessor_idx)
-            } else {
-                None
-            };
-
-            // Indices
-            let indices_byte_length = primitive.indices.len() * std::mem::size_of::<u32>();
-            let indices_offset = current_offset;
-            current_offset += indices_byte_length;
-
-            let indices_buffer_view_index = buffer_views.len();
-            buffer_views.push(json::buffer::View {
-                buffer: json::Index::new(0),
-                byte_length: USize64::from(indices_byte_length),
-                byte_offset: Some(USize64::from(indices_offset)),
-                byte_stride: None,
-                target: Some(Valid(json::buffer::Target::ElementArrayBuffer)),
-                extensions: None,
-                extras: Default::default(),
-                name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
-            });
-
-            let indices_accessor_index = accessors.len();
-            accessors.push(json::Accessor {
-                buffer_view: Some(json::Index::new(indices_buffer_view_index as u32)),
-                byte_offset: Some(USize64::from(0usize)),
-                count: USize64::from(primitive.indices.len()),
-                component_type: Valid(json::accessor::GenericComponentType(
-                    json::accessor::ComponentType::U32,
-                )),
-                type_: Valid(json::accessor::Type::Scalar),
-                min: None,
-                max: None,
-                normalized: false,
-                sparse: None,
-                extensions: None,
-                extras: Default::default(),
-                name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
-            });
-
-            // Build primitive attributes
-            let mut attributes = std::collections::BTreeMap::new();
-            attributes.insert(Valid(json::mesh::Semantic::Positions), json::Index::new(0)); // Shared positions
-            attributes.insert(
-                Valid(json::mesh::Semantic::Normals),
-                json::Index::new(normals_accessor_index as u32),
+            let buffer_info = Self::create_primitive_buffer_views_and_accessors(
+                name,
+                prim_index,
+                primitive,
+                &mut current_offset,
+                &mut buffer_views,
+                &mut accessors,
             );
-            if let Some(uvs_idx) = uvs_accessor_index {
-                attributes.insert(
-                    Valid(json::mesh::Semantic::TexCoords(0)),
-                    json::Index::new(uvs_idx as u32),
-                );
-            }
 
-            // Track material key for this primitive (will create materials later)
+            // Assign material index
             let material_index = if !texture_images.is_empty() {
-                // Get or assign material index for this primitive's material_key
                 let next_index = material_key_to_index.len();
                 let mat_index = *material_key_to_index
                     .entry(primitive.material_key.clone())
@@ -691,181 +894,70 @@ impl ModelConverter {
                 None
             };
 
-            gltf_primitives.push(json::mesh::Primitive {
-                attributes,
-                indices: Some(json::Index::new(indices_accessor_index as u32)),
-                material: material_index,
-                mode: Valid(json::mesh::Mode::Triangles),
-                targets: None,
-                extensions: None,
-                extras: Default::default(),
-            });
+            let gltf_prim = Self::create_gltf_primitive(&buffer_info, material_index);
+            gltf_primitives.push(gltf_prim);
         }
 
-        // Build Images, Textures, and Materials
-        let mut images = Vec::new();
-        let mut textures = Vec::new();
-        let mut materials = Vec::new();
+        // Create images, textures, and materials
+        let (images, textures, texture_id_to_index) =
+            Self::create_images_and_textures_for_model(name, texture_images);
+        let materials = if !texture_images.is_empty() {
+            Self::create_materials_for_primitives(
+                name,
+                &material_key_to_index,
+                &texture_id_to_index,
+                palette,
+            )
+        } else {
+            Vec::new()
+        };
 
-        if !texture_images.is_empty() {
-            // Create a mapping from texture_id to image/texture index
-            let mut texture_id_to_index: HashMap<u16, usize> = HashMap::new();
-
-            // Create Images and Textures for each unique texture
-            for (&texture_id, data_uri) in texture_images.iter() {
-                let image_index = images.len();
-                images.push(json::Image {
-                    uri: Some(data_uri.clone()),
-                    mime_type: Some(json::image::MimeType("image/png".to_string())),
-                    buffer_view: None,
-                    name: Some(format!("{} - Texture {}", name, texture_id)),
-                    extensions: None,
-                    extras: Default::default(),
-                });
-
-                textures.push(json::Texture {
-                    sampler: None, // Use default sampler (linear filtering, repeat wrapping)
-                    source: json::Index::new(image_index as u32),
-                    name: Some(format!("{} - Texture {}", name, texture_id)),
-                    extensions: None,
-                    extras: Default::default(),
-                });
-
-                texture_id_to_index.insert(texture_id, image_index);
-            }
-
-            // Create Materials for each unique material_key
-            // Sort by material index to ensure consistent ordering
-            let mut sorted_materials: Vec<_> = material_key_to_index.iter().collect();
-            sorted_materials.sort_by_key(|&(_, &idx)| idx);
-
-            for (material_key, _) in sorted_materials {
-                match material_key {
-                    MaterialKey::Flat(color) => {
-                        // Flat material with solid color from palette
-                        let base_color = if let Some(pal) = palette {
-                            // Convert palette color to normalized float RGB
-                            let rgb8 = pal.get_rgb8(*color as u8);
-                            [
-                                rgb8[0] as f32 / 255.0,
-                                rgb8[1] as f32 / 255.0,
-                                rgb8[2] as f32 / 255.0,
-                                1.0,
-                            ]
-                        } else {
-                            // No palette available, use placeholder gray
-                            [0.5, 0.5, 0.5, 1.0]
-                        };
-
-                        materials.push(json::Material {
-                            pbr_metallic_roughness: json::material::PbrMetallicRoughness {
-                                base_color_factor: json::material::PbrBaseColorFactor(base_color),
-                                base_color_texture: None,
-                                metallic_factor: json::material::StrengthFactor(0.0),
-                                roughness_factor: json::material::StrengthFactor(1.0),
-                                metallic_roughness_texture: None,
-                                extensions: None,
-                                extras: Default::default(),
-                            },
-                            normal_texture: None,
-                            occlusion_texture: None,
-                            emissive_texture: None,
-                            emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
-                            alpha_mode: Valid(json::material::AlphaMode::Opaque),
-                            alpha_cutoff: None,
-                            double_sided: false,
-                            name: Some(format!("{} - Flat Material (color {})", name, color)),
-                            extensions: None,
-                            extras: Default::default(),
-                        });
-                    }
-                    MaterialKey::Textured(texture_id) => {
-                        // Textured material
-                        let texture_index =
-                            texture_id_to_index.get(texture_id).copied().unwrap_or(0);
-
-                        materials.push(json::Material {
-                            pbr_metallic_roughness: json::material::PbrMetallicRoughness {
-                                base_color_factor: json::material::PbrBaseColorFactor([
-                                    1.0, 1.0, 1.0, 1.0,
-                                ]),
-                                base_color_texture: Some(json::texture::Info {
-                                    index: json::Index::new(texture_index as u32),
-                                    tex_coord: 0,
-                                    extensions: None,
-                                    extras: Default::default(),
-                                }),
-                                metallic_factor: json::material::StrengthFactor(0.0),
-                                roughness_factor: json::material::StrengthFactor(1.0),
-                                metallic_roughness_texture: None,
-                                extensions: None,
-                                extras: Default::default(),
-                            },
-                            normal_texture: None,
-                            occlusion_texture: None,
-                            emissive_texture: None,
-                            emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
-                            alpha_mode: Valid(json::material::AlphaMode::Opaque),
-                            alpha_cutoff: None,
-                            double_sided: false,
-                            name: Some(format!(
-                                "{} - Textured Material (texture {})",
-                                name, texture_id
-                            )),
-                            extensions: None,
-                            extras: Default::default(),
-                        });
-                    }
-                }
-            }
-        }
-
-        // Build glTF root structure
+        // Build glTF structure
         let buffer = json::Buffer {
             byte_length: USize64::from(buffer_length),
             uri: None,
+            name: Some(format!("{} - Buffer", name)),
             extensions: None,
             extras: Default::default(),
-            name: Some(format!("{} - Binary Buffer", name)),
         };
 
-        let meshes = vec![json::Mesh {
+        let mesh = json::Mesh {
             primitives: gltf_primitives,
             weights: None,
+            name: Some(format!("{} - Mesh", name)),
             extensions: None,
             extras: Default::default(),
-            name: Some(name.to_string()),
-        }];
+        };
 
-        let nodes = vec![json::scene::Node {
+        let node = json::Node {
             mesh: Some(json::Index::new(0)),
             camera: None,
             children: None,
-            extensions: None,
-            extras: Default::default(),
+            skin: None,
             matrix: None,
             rotation: None,
             scale: None,
             translation: None,
-            skin: None,
             weights: None,
             name: Some(format!("{} - Node", name)),
-        }];
+            extensions: None,
+            extras: Default::default(),
+        };
 
-        let scenes = vec![json::Scene {
+        let scene = json::Scene {
             nodes: vec![json::Index::new(0)],
             extensions: None,
             extras: Default::default(),
             name: Some(format!("{} - Scene", name)),
-        }];
+        };
 
-        let root = json::Root {
+        Ok(json::Root {
             accessors,
             buffers: vec![buffer],
             buffer_views,
-            meshes,
-            nodes,
-            scenes,
+            meshes: vec![mesh],
+            nodes: vec![node],
+            scenes: vec![scene],
             scene: Some(json::Index::new(0)),
             asset: json::Asset {
                 version: "2.0".to_string(),
@@ -886,9 +978,7 @@ impl ModelConverter {
             extensions_used: vec![],
             extensions_required: vec![],
             extras: Default::default(),
-        };
-
-        Ok(root)
+        })
     }
 
     /// Compute min/max bounds for position data.
