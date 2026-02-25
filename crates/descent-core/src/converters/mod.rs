@@ -3,8 +3,8 @@
 //! This module provides converters for:
 //! - **Textures**: PIG (8-bit indexed) and OGF (D3 textures) → PNG, WebP
 //! - **Models**: POF → glTF 2.0 / GLB
+//! - **Levels**: RDL/RL2 → glTF scenes
 //! - **Audio**: SNDs → WAV, HMP → MIDI (future)
-//! - **Levels**: RDL/RL2 → glTF scenes (future)
 //!
 //! # Examples
 //!
@@ -46,9 +46,11 @@
 //! fs::write("pyrogl.glb", glb_data).unwrap();
 //! ```
 
+pub mod level;
 pub mod model;
 pub mod texture;
 
 // Re-export main types
+pub use level::LevelConverter;
 pub use model::ModelConverter;
 pub use texture::{ImageFormat, TextureConvertError, TextureConverter};
