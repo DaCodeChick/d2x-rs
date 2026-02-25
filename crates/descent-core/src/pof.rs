@@ -147,6 +147,10 @@ pub struct PofModel {
     pub submodel_calls: Vec<SubmodelCall>,
     /// Glow points (engine effects, weapon muzzles).
     pub glow_points: Vec<GlowPoint>,
+    /// Number of textures used by this model.
+    pub n_textures: u8,
+    /// Starting index in the texture table (used with HAM file).
+    pub first_texture: u16,
 }
 
 /// POF parser with opcode dispatcher.
@@ -156,7 +160,7 @@ pub struct PofParser<'a> {
 }
 
 impl<'a> PofParser<'a> {
-    /// Parse a POF model from byte data.
+    /// Parse a POF model from byte data (without header).
     pub fn parse(data: &'a [u8]) -> Result<PofModel> {
         let mut parser = Self {
             cursor: Cursor::new(data),
@@ -164,6 +168,88 @@ impl<'a> PofParser<'a> {
         };
         parser.parse_opcodes()?;
         Ok(parser.model)
+    }
+
+    /// Parse a POF model with full header (as stored in HAM files).
+    ///
+    /// The header contains submodel information, bounding boxes, and texture metadata.
+    /// This format is used when POF data is embedded in HAM files.
+    pub fn parse_with_header(data: &'a [u8]) -> Result<PofModel> {
+        let mut parser = Self {
+            cursor: Cursor::new(data),
+            model: PofModel::default(),
+        };
+        parser.parse_header()?;
+        parser.parse_opcodes()?;
+        Ok(parser.model)
+    }
+
+    /// Parse POF header structure.
+    ///
+    /// Header structure (all values little-endian):
+    /// - n_models: i32
+    /// - data_size: i32
+    /// - unused: i32
+    /// - submodel data: 10 submodels × various fields (not needed for texture extraction)
+    /// - model_mins: FixVector (12 bytes)
+    /// - model_maxs: FixVector (12 bytes)
+    /// - model_rad: Fix (4 bytes)
+    /// - n_textures: u8
+    /// - first_texture: u16
+    /// - simpler_model: u8
+    fn parse_header(&mut self) -> Result<()> {
+        const MAX_SUBMODELS: usize = 10;
+
+        // Read basic header
+        let _n_models = self.cursor.read_i32_le()?;
+        let _data_size = self.cursor.read_i32_le()?;
+        let _unused = self.cursor.read_i32_le()?;
+
+        // Skip submodel data (we don't need it for texture extraction)
+        // submodel_ptrs[10]: i32 × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _ptr = self.cursor.read_i32_le()?;
+        }
+        // submodel_offsets[10]: FixVector × 10 (12 bytes each)
+        for _ in 0..MAX_SUBMODELS {
+            let _offset = self.read_fixvector()?;
+        }
+        // submodel_norms[10]: FixVector × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _norm = self.read_fixvector()?;
+        }
+        // submodel_pnts[10]: FixVector × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _pnt = self.read_fixvector()?;
+        }
+        // submodel_rads[10]: Fix × 10 (i32)
+        for _ in 0..MAX_SUBMODELS {
+            let _rad = self.cursor.read_i32_le()?;
+        }
+        // submodel_parents[10]: u8 × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _parent = self.cursor.read_u8()?;
+        }
+        // submodel_mins[10]: FixVector × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _min = self.read_fixvector()?;
+        }
+        // submodel_maxs[10]: FixVector × 10
+        for _ in 0..MAX_SUBMODELS {
+            let _max = self.read_fixvector()?;
+        }
+
+        // Model-level bounds and radius
+        let _model_mins = self.read_fixvector()?;
+        let _model_maxs = self.read_fixvector()?;
+        let _model_rad = self.cursor.read_i32_le()?;
+
+        // Texture metadata (what we actually need!)
+        self.model.n_textures = self.cursor.read_u8()?;
+        self.model.first_texture = self.cursor.read_u16_le()?;
+        let _simpler_model = self.cursor.read_u8()?;
+
+        Ok(())
     }
 
     /// Main opcode parsing loop.

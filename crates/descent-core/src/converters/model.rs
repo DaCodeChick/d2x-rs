@@ -28,6 +28,7 @@
 //! use descent_core::pof::PofParser;
 //! use descent_core::pig::PigFile;
 //! use descent_core::palette::Palette;
+//! use descent_core::ham::HamFile;
 //! use descent_core::converters::model::{ModelConverter, TextureProvider};
 //! use std::fs;
 //!
@@ -40,13 +41,17 @@
 //! let palette_data = fs::read("groupa.256").unwrap();
 //! let palette = Palette::parse(&palette_data).unwrap();
 //!
-//! let provider = TextureProvider::new(pig, palette);
+//! let ham_data = fs::read("descent2.ham").unwrap();
+//! let ham = HamFile::parse(&ham_data).unwrap();
+//!
+//! let provider = TextureProvider::new(pig, palette, ham);
 //! let converter = ModelConverter::new();
 //! let glb = converter.pof_to_glb(&model, "Pyro-GL Ship", Some(&provider)).unwrap();
 //! fs::write("pyrogl.glb", glb).unwrap();
 //! ```
 
 use crate::error::{AssetError, Result};
+use crate::ham::HamFile;
 use crate::palette::Palette;
 use crate::pig::PigFile;
 use crate::pof::{PofModel, Polygon};
@@ -58,17 +63,18 @@ use std::io::Write;
 
 /// Provides texture data for model conversion.
 ///
-/// This struct holds a PIG file and palette for converting
-/// indexed textures to modern formats (PNG) during GLB export.
+/// This struct holds a PIG file, palette, and HAM file for converting
+/// indexed textures to modern formats (PNG) and mapping texture IDs during GLB export.
 pub struct TextureProvider {
     pig: PigFile,
     palette: Palette,
+    ham: HamFile,
 }
 
 impl TextureProvider {
     /// Create a new texture provider.
-    pub fn new(pig: PigFile, palette: Palette) -> Self {
-        Self { pig, palette }
+    pub fn new(pig: PigFile, palette: Palette, ham: HamFile) -> Self {
+        Self { pig, palette, ham }
     }
 
     /// Get the PIG file reference.
@@ -79,6 +85,11 @@ impl TextureProvider {
     /// Get the palette reference.
     pub fn palette(&self) -> &Palette {
         &self.palette
+    }
+
+    /// Get the HAM file reference.
+    pub fn ham(&self) -> &HamFile {
+        &self.ham
     }
 }
 
@@ -157,12 +168,15 @@ impl ModelConverter {
     /// # use descent_core::pof::PofParser;
     /// # use descent_core::pig::PigFile;
     /// # use descent_core::palette::Palette;
+    /// # use descent_core::ham::HamFile;
     /// # use descent_core::converters::model::{ModelConverter, TextureProvider};
     /// # let pof_data = vec![];
     /// # let model = PofParser::parse(&pof_data).unwrap();
     /// # let pig = PigFile::parse(vec![], false).unwrap();
     /// # let palette = Palette::parse(&[]).unwrap();
-    /// let provider = TextureProvider::new(pig, palette);
+    /// # let ham_data = vec![];
+    /// # let ham = HamFile::parse(&ham_data).unwrap();
+    /// let provider = TextureProvider::new(pig, palette, ham);
     /// let converter = ModelConverter::new();
     /// let glb = converter.pof_to_glb(&model, "Ship", Some(&provider)).unwrap();
     /// ```
@@ -172,9 +186,15 @@ impl ModelConverter {
         name: &str,
         texture_provider: Option<&TextureProvider>,
     ) -> Result<Vec<u8>> {
-        // TODO: Extract texture images if provider is available
-        // Currently disabled until we understand POF texture ID mapping
-        let _texture_images: HashMap<u16, String> = HashMap::new();
+        // Extract texture images if provider is available
+        let texture_images: HashMap<u16, String> = if let Some(provider) = texture_provider {
+            self.extract_textures(model, provider)?
+        } else {
+            HashMap::new()
+        };
+
+        // Get palette reference for color conversion
+        let palette = texture_provider.map(|p| p.palette());
 
         // Convert POF geometry to glTF data (grouped by material)
         let geometry = self.extract_geometry(model, texture_provider.is_some())?;
@@ -183,7 +203,8 @@ impl ModelConverter {
         let bin_buffer = self.build_binary_buffer(&geometry)?;
 
         // Build glTF JSON structure
-        let root = self.build_gltf_json(name, &geometry, bin_buffer.len())?;
+        let root =
+            self.build_gltf_json(name, &geometry, &texture_images, palette, bin_buffer.len())?;
 
         // Serialize to JSON
         let json_string = serde_json::to_string(&root).map_err(|e| {
@@ -342,17 +363,92 @@ impl ModelConverter {
     ///
     /// Returns a map of texture_id -> PNG image data (base64 encoded data URI).
     ///
-    /// NOTE: Currently disabled - needs HAM file for texture ID mapping
-    #[allow(dead_code)]
+    /// Extract and convert textures from POF model.
+    ///
+    /// Maps POF texture IDs to PIG bitmap names via HAM file, then converts to PNG data URIs.
+    ///
+    /// # Texture Mapping Process
+    ///
+    /// 1. POF model has `first_texture` (starting index) and `n_textures` (count)
+    /// 2. For each texture_id in POF polygons:
+    ///    - Look up: `ham.obj_bitmap_pointers[first_texture + texture_id]` → bitmap_index
+    ///    - Then: `ham.obj_bitmap_indices[bitmap_index].index` → PIG bitmap index
+    /// 3. Find PIG bitmap name by iterating `pig.headers()` and matching index
+    /// 4. Load bitmap from PIG and convert to PNG
+    /// 5. Encode PNG as base64 data URI
+    ///
+    /// Returns: HashMap<texture_id, data_uri>
     fn extract_textures(
         &self,
-        _model: &PofModel,
-        _provider: &TextureProvider,
+        model: &PofModel,
+        provider: &TextureProvider,
     ) -> Result<HashMap<u16, String>> {
-        // TODO: Implement once we have HAM file support for texture mapping
-        // The challenge: POF uses texture IDs, but PIG uses texture names
-        // HAM file contains the mapping: pObjBmIndex[first_texture + texture_id] -> objBmIndex -> bitmap name
-        Ok(HashMap::new())
+        use crate::converters::texture::TextureConverter;
+        use base64::Engine as _;
+
+        let mut textures = HashMap::new();
+
+        // If model has no texture metadata, return empty
+        if model.n_textures == 0 {
+            return Ok(textures);
+        }
+
+        // Extract unique texture IDs from textured polygons
+        let mut texture_ids: std::collections::HashSet<u16> = std::collections::HashSet::new();
+        for polygon in &model.polygons {
+            if let crate::pof::Polygon::Textured(poly) = polygon {
+                texture_ids.insert(poly.texture_id);
+            }
+        }
+
+        // Create texture converter
+        let converter = TextureConverter::new(&provider.palette);
+
+        // Convert each texture
+        for texture_id in texture_ids {
+            // Safety check: texture_id must be within model's texture range
+            if texture_id as usize >= model.n_textures as usize {
+                return Err(AssetError::InvalidFormat(format!(
+                    "Texture ID {} exceeds model's texture count {}",
+                    texture_id, model.n_textures
+                )));
+            }
+
+            // Map POF texture ID to PIG bitmap index via HAM
+            let texture_slot = model.first_texture as usize + texture_id as usize;
+            let pig_bitmap_index = provider.ham.lookup_texture(texture_slot).ok_or_else(|| {
+                AssetError::InvalidFormat(format!(
+                    "Failed to lookup texture slot {} (first_texture={}, texture_id={})",
+                    texture_slot, model.first_texture, texture_id
+                ))
+            })?;
+
+            // Find bitmap name in PIG by index
+            let bitmap_header = provider
+                .pig
+                .get_by_index(pig_bitmap_index as usize)
+                .ok_or_else(|| {
+                    AssetError::InvalidFormat(format!(
+                        "PIG bitmap index {} not found for texture ID {}",
+                        pig_bitmap_index, texture_id
+                    ))
+                })?;
+
+            // Convert to PNG
+            let png_data = converter
+                .pig_to_png(&provider.pig, &bitmap_header.name)
+                .map_err(|e| {
+                    AssetError::InvalidFormat(format!("Failed to convert texture: {}", e))
+                })?;
+
+            // Encode as base64 data URI
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&png_data);
+            let data_uri = format!("data:image/png;base64,{}", base64_data);
+
+            textures.insert(texture_id, data_uri);
+        }
+
+        Ok(textures)
     }
 
     /// Build binary buffer containing vertex and index data.
@@ -403,10 +499,14 @@ impl ModelConverter {
     /// Build the glTF JSON structure.
     ///
     /// Creates glTF 2.0 JSON with multiple mesh primitives grouped by material.
+    /// If texture_images is provided, creates Images, Textures, and Materials.
+    /// If palette is provided, converts flat material colors from palette indices.
     fn build_gltf_json(
         &self,
-        _name: &str,
+        name: &str,
         geometry: &GeometryData,
+        texture_images: &HashMap<u16, String>,
+        palette: Option<&Palette>,
         buffer_length: usize,
     ) -> Result<json::Root> {
         // Compute bounding box for positions
@@ -430,6 +530,7 @@ impl ModelConverter {
             target: Some(Valid(json::buffer::Target::ArrayBuffer)),
             extensions: None,
             extras: Default::default(),
+            name: Some(format!("{} - Positions", name)),
         });
 
         // Accessor 0: Positions (shared)
@@ -447,10 +548,14 @@ impl ModelConverter {
             sparse: None,
             extensions: None,
             extras: Default::default(),
+            name: Some(format!("{} - Positions", name)),
         });
 
         // Create buffer views and accessors for each primitive
-        for primitive in &geometry.primitives {
+        // Also build a map from material_key to material index
+        let mut material_key_to_index: HashMap<MaterialKey, usize> = HashMap::new();
+
+        for (prim_index, primitive) in geometry.primitives.iter().enumerate() {
             let normals_byte_length = primitive.normals.len() * std::mem::size_of::<f32>();
             let normals_offset = current_offset;
             current_offset += normals_byte_length;
@@ -464,6 +569,7 @@ impl ModelConverter {
                 target: Some(Valid(json::buffer::Target::ArrayBuffer)),
                 extensions: None,
                 extras: Default::default(),
+                name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
             });
 
             let normals_accessor_index = accessors.len();
@@ -481,6 +587,7 @@ impl ModelConverter {
                 sparse: None,
                 extensions: None,
                 extras: Default::default(),
+                name: Some(format!("{} - Primitive {} Normals", name, prim_index)),
             });
 
             // UVs if present
@@ -498,6 +605,7 @@ impl ModelConverter {
                     target: Some(Valid(json::buffer::Target::ArrayBuffer)),
                     extensions: None,
                     extras: Default::default(),
+                    name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
                 });
 
                 let uvs_accessor_idx = accessors.len();
@@ -515,6 +623,7 @@ impl ModelConverter {
                     sparse: None,
                     extensions: None,
                     extras: Default::default(),
+                    name: Some(format!("{} - Primitive {} UVs", name, prim_index)),
                 });
                 Some(uvs_accessor_idx)
             } else {
@@ -535,6 +644,7 @@ impl ModelConverter {
                 target: Some(Valid(json::buffer::Target::ElementArrayBuffer)),
                 extensions: None,
                 extras: Default::default(),
+                name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
             });
 
             let indices_accessor_index = accessors.len();
@@ -552,6 +662,7 @@ impl ModelConverter {
                 sparse: None,
                 extensions: None,
                 extras: Default::default(),
+                name: Some(format!("{} - Primitive {} Indices", name, prim_index)),
             });
 
             // Build primitive attributes
@@ -568,15 +679,145 @@ impl ModelConverter {
                 );
             }
 
+            // Track material key for this primitive (will create materials later)
+            let material_index = if !texture_images.is_empty() {
+                // Get or assign material index for this primitive's material_key
+                let next_index = material_key_to_index.len();
+                let mat_index = *material_key_to_index
+                    .entry(primitive.material_key.clone())
+                    .or_insert(next_index);
+                Some(json::Index::new(mat_index as u32))
+            } else {
+                None
+            };
+
             gltf_primitives.push(json::mesh::Primitive {
                 attributes,
                 indices: Some(json::Index::new(indices_accessor_index as u32)),
-                material: None, // TODO: Add materials
+                material: material_index,
                 mode: Valid(json::mesh::Mode::Triangles),
                 targets: None,
                 extensions: None,
                 extras: Default::default(),
             });
+        }
+
+        // Build Images, Textures, and Materials
+        let mut images = Vec::new();
+        let mut textures = Vec::new();
+        let mut materials = Vec::new();
+
+        if !texture_images.is_empty() {
+            // Create a mapping from texture_id to image/texture index
+            let mut texture_id_to_index: HashMap<u16, usize> = HashMap::new();
+
+            // Create Images and Textures for each unique texture
+            for (&texture_id, data_uri) in texture_images.iter() {
+                let image_index = images.len();
+                images.push(json::Image {
+                    uri: Some(data_uri.clone()),
+                    mime_type: Some(json::image::MimeType("image/png".to_string())),
+                    buffer_view: None,
+                    name: Some(format!("{} - Texture {}", name, texture_id)),
+                    extensions: None,
+                    extras: Default::default(),
+                });
+
+                textures.push(json::Texture {
+                    sampler: None, // Use default sampler (linear filtering, repeat wrapping)
+                    source: json::Index::new(image_index as u32),
+                    name: Some(format!("{} - Texture {}", name, texture_id)),
+                    extensions: None,
+                    extras: Default::default(),
+                });
+
+                texture_id_to_index.insert(texture_id, image_index);
+            }
+
+            // Create Materials for each unique material_key
+            // Sort by material index to ensure consistent ordering
+            let mut sorted_materials: Vec<_> = material_key_to_index.iter().collect();
+            sorted_materials.sort_by_key(|&(_, &idx)| idx);
+
+            for (material_key, _) in sorted_materials {
+                match material_key {
+                    MaterialKey::Flat(color) => {
+                        // Flat material with solid color from palette
+                        let base_color = if let Some(pal) = palette {
+                            // Convert palette color to normalized float RGB
+                            let rgb8 = pal.get_rgb8(*color as u8);
+                            [
+                                rgb8[0] as f32 / 255.0,
+                                rgb8[1] as f32 / 255.0,
+                                rgb8[2] as f32 / 255.0,
+                                1.0,
+                            ]
+                        } else {
+                            // No palette available, use placeholder gray
+                            [0.5, 0.5, 0.5, 1.0]
+                        };
+
+                        materials.push(json::Material {
+                            pbr_metallic_roughness: json::material::PbrMetallicRoughness {
+                                base_color_factor: json::material::PbrBaseColorFactor(base_color),
+                                base_color_texture: None,
+                                metallic_factor: json::material::StrengthFactor(0.0),
+                                roughness_factor: json::material::StrengthFactor(1.0),
+                                metallic_roughness_texture: None,
+                                extensions: None,
+                                extras: Default::default(),
+                            },
+                            normal_texture: None,
+                            occlusion_texture: None,
+                            emissive_texture: None,
+                            emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
+                            alpha_mode: Valid(json::material::AlphaMode::Opaque),
+                            alpha_cutoff: None,
+                            double_sided: false,
+                            name: Some(format!("{} - Flat Material (color {})", name, color)),
+                            extensions: None,
+                            extras: Default::default(),
+                        });
+                    }
+                    MaterialKey::Textured(texture_id) => {
+                        // Textured material
+                        let texture_index =
+                            texture_id_to_index.get(texture_id).copied().unwrap_or(0);
+
+                        materials.push(json::Material {
+                            pbr_metallic_roughness: json::material::PbrMetallicRoughness {
+                                base_color_factor: json::material::PbrBaseColorFactor([
+                                    1.0, 1.0, 1.0, 1.0,
+                                ]),
+                                base_color_texture: Some(json::texture::Info {
+                                    index: json::Index::new(texture_index as u32),
+                                    tex_coord: 0,
+                                    extensions: None,
+                                    extras: Default::default(),
+                                }),
+                                metallic_factor: json::material::StrengthFactor(0.0),
+                                roughness_factor: json::material::StrengthFactor(1.0),
+                                metallic_roughness_texture: None,
+                                extensions: None,
+                                extras: Default::default(),
+                            },
+                            normal_texture: None,
+                            occlusion_texture: None,
+                            emissive_texture: None,
+                            emissive_factor: json::material::EmissiveFactor([0.0, 0.0, 0.0]),
+                            alpha_mode: Valid(json::material::AlphaMode::Opaque),
+                            alpha_cutoff: None,
+                            double_sided: false,
+                            name: Some(format!(
+                                "{} - Textured Material (texture {})",
+                                name, texture_id
+                            )),
+                            extensions: None,
+                            extras: Default::default(),
+                        });
+                    }
+                }
+            }
         }
 
         // Build glTF root structure
@@ -585,6 +826,7 @@ impl ModelConverter {
             uri: None,
             extensions: None,
             extras: Default::default(),
+            name: Some(format!("{} - Binary Buffer", name)),
         };
 
         let meshes = vec![json::Mesh {
@@ -592,6 +834,7 @@ impl ModelConverter {
             weights: None,
             extensions: None,
             extras: Default::default(),
+            name: Some(name.to_string()),
         }];
 
         let nodes = vec![json::scene::Node {
@@ -606,12 +849,14 @@ impl ModelConverter {
             translation: None,
             skin: None,
             weights: None,
+            name: Some(format!("{} - Node", name)),
         }];
 
         let scenes = vec![json::Scene {
             nodes: vec![json::Index::new(0)],
             extensions: None,
             extras: Default::default(),
+            name: Some(format!("{} - Scene", name)),
         }];
 
         let root = json::Root {
@@ -632,11 +877,11 @@ impl ModelConverter {
             },
             animations: vec![],
             cameras: vec![],
-            images: vec![],
-            materials: vec![],
+            images,
+            materials,
             samplers: vec![],
             skins: vec![],
-            textures: vec![],
+            textures,
             extensions: None,
             extensions_used: vec![],
             extensions_required: vec![],

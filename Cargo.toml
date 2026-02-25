@@ -3,6 +3,7 @@ members = [
     "crates/descent-core",
     "crates/d2x-engine",
     "crates/d2x-client",
+    "crates/tools/pof2glb",
 ]
 resolver = "2"
 

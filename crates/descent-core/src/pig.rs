@@ -235,6 +235,8 @@ impl BitmapData {
 pub struct PigFile {
     /// All bitmap headers indexed by name (case-insensitive)
     headers: HashMap<String, BitmapHeader>,
+    /// Ordered list of bitmap headers (preserves file order for index-based lookup)
+    headers_ordered: Vec<BitmapHeader>,
     /// Offset where bitmap data section starts
     data_start: usize,
     /// Raw file data
@@ -268,6 +270,7 @@ impl PigFile {
 
         // Read all bitmap headers
         let mut headers = HashMap::new();
+        let mut headers_ordered = Vec::with_capacity(num_bitmaps as usize);
         for _ in 0..num_bitmaps {
             let mut header_data = [0u8; BITMAP_HEADER_SIZE];
             cursor.read_exact(&mut header_data)?;
@@ -278,12 +281,15 @@ impl PigFile {
                 BitmapHeader::parse_d2(&header_data)?
             };
 
+            // Store in ordered list (for index-based lookup)
+            headers_ordered.push(header.clone());
             // Store with lowercase key for case-insensitive lookup
             headers.insert(header.name.to_lowercase(), header);
         }
 
         Ok(Self {
             headers,
+            headers_ordered,
             data_start,
             data,
             is_d1,
@@ -293,6 +299,13 @@ impl PigFile {
     /// Get all bitmap headers
     pub fn headers(&self) -> impl Iterator<Item = &BitmapHeader> {
         self.headers.values()
+    }
+
+    /// Get bitmap header by index (preserves original PIG file order).
+    ///
+    /// This is used for mapping HAM BitmapIndex values to actual bitmaps.
+    pub fn get_by_index(&self, index: usize) -> Option<&BitmapHeader> {
+        self.headers_ordered.get(index)
     }
 
     /// Find a bitmap header by name (case-insensitive)
