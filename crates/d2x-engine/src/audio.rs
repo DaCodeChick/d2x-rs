@@ -81,6 +81,8 @@ pub struct MidiState {
     sequencer: Option<Arc<Mutex<MidiFileSequencer>>>,
     /// Whether playback is looping.
     looping: bool,
+    /// Whether playback is paused.
+    paused: bool,
 }
 
 /// Events for controlling MIDI playback.
@@ -112,18 +114,32 @@ fn handle_midi_events(
             if let Err(e) = start_midi_playback(&mut state, &soundfont_path.0, midi_data, looping) {
                 error!("Failed to start MIDI playback: {}", e);
             }
+            state.paused = false;
         }
         MidiPlaybackEvent::Stop => {
             state.sequencer = None;
+            state.paused = false;
             info!("MIDI playback stopped");
         }
         MidiPlaybackEvent::Pause => {
-            // TODO: Implement pause functionality
-            info!("MIDI pause not yet implemented");
+            if state.sequencer.is_some() && !state.paused {
+                state.paused = true;
+                info!("MIDI playback paused");
+            } else if state.paused {
+                info!("MIDI playback already paused");
+            } else {
+                info!("No MIDI playback to pause");
+            }
         }
         MidiPlaybackEvent::Resume => {
-            // TODO: Implement resume functionality
-            info!("MIDI resume not yet implemented");
+            if state.sequencer.is_some() && state.paused {
+                state.paused = false;
+                info!("MIDI playback resumed");
+            } else if !state.paused {
+                info!("MIDI playback not paused");
+            } else {
+                info!("No MIDI playback to resume");
+            }
         }
     }
 }
@@ -191,24 +207,39 @@ impl Default for AudioSampleBuffer {
 ///
 /// This system should be called regularly to fill the audio buffer
 /// with synthesized samples from the MIDI sequencer.
+///
+/// If playback is paused, this will output silence instead of advancing the sequencer.
 pub fn render_midi_samples(state: ResMut<MidiState>, mut buffer: ResMut<AudioSampleBuffer>) {
+    let samples_needed = 4096; // Render in 4K chunks
+
+    // Check if we should render or output silence
     if let Some(ref sequencer) = state.sequencer {
-        let samples_needed = 4096; // Render in 4K chunks
-        let mut left = vec![0.0; samples_needed];
-        let mut right = vec![0.0; samples_needed];
+        if !state.paused {
+            // Playback is active - render samples
+            let mut left = vec![0.0; samples_needed];
+            let mut right = vec![0.0; samples_needed];
 
-        // Render samples
-        if let Ok(mut seq) = sequencer.lock() {
-            seq.render(&mut left, &mut right);
+            // Render samples from sequencer
+            if let Ok(mut seq) = sequencer.lock() {
+                seq.render(&mut left, &mut right);
+            }
+
+            // Interleave stereo samples
+            buffer.buffer.clear();
+            buffer.buffer.reserve(samples_needed * 2);
+            for i in 0..samples_needed {
+                buffer.buffer.push(left[i]);
+                buffer.buffer.push(right[i]);
+            }
+        } else {
+            // Playback is paused - output silence
+            buffer.buffer.clear();
+            buffer.buffer.resize(samples_needed * 2, 0.0);
         }
-
-        // Interleave stereo samples
+    } else {
+        // No sequencer - output silence
         buffer.buffer.clear();
-        buffer.buffer.reserve(samples_needed * 2);
-        for i in 0..samples_needed {
-            buffer.buffer.push(left[i]);
-            buffer.buffer.push(right[i]);
-        }
+        buffer.buffer.resize(samples_needed * 2, 0.0);
     }
 }
 
@@ -251,6 +282,23 @@ mod tests {
         let state = MidiState::default();
         assert!(state.sequencer.is_none());
         assert!(!state.looping);
+        assert!(!state.paused);
+    }
+
+    #[test]
+    fn test_pause_resume_state() {
+        let mut state = MidiState::default();
+
+        // Initially not paused
+        assert!(!state.paused);
+
+        // Pause
+        state.paused = true;
+        assert!(state.paused);
+
+        // Resume
+        state.paused = false;
+        assert!(!state.paused);
     }
 
     #[test]
