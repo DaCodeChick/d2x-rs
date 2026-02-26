@@ -34,6 +34,55 @@ Cargo.lock
 *.so
 *.dll
 
+# C++/CMake build directories
+**/build/
+**/cmake-build-*/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/compile_commands.json
+**/*.cmake
+!**/CMakeLists.txt
+!**/*Config.cmake
+!**/*-config.cmake
+
+# C++ compiled files
+*.o
+*.obj
+*.a
+*.lib
+*.so.*
+*.exe
+*.out
+*.app
+
+# Qt build artifacts
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*_autogen/
+*.qm
+*.pro.user
+*.pro.user.*
+.qmake.stash
+
+# Qt Creator
+*.autosave
+*.user
+*.creator
+*.creator.*
+*.includes
+*.files
+*.config
+*.cflags
+*.cxxflags
+
+# Precompiled headers
+*.gch
+*.pch
+
 # Editor files
 .vscode/
 .idea/
