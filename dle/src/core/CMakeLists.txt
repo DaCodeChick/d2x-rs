@@ -16,6 +16,8 @@ add_library(dle_core STATIC
     mine/Wall.cpp
     mine/Trigger.h
     mine/Trigger.cpp
+    mine/Object.h
+    mine/Object.cpp
     
     # File I/O
     io/FileReader.h
