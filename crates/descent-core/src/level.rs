@@ -503,6 +503,7 @@ impl Level {
                 &segment.vertices,
                 segment.children[i],
                 new_file_format,
+                version,
             )
         })?;
 
@@ -590,13 +591,23 @@ impl Level {
         _seg_vertices: &[u16; SEGMENT_VERTEX_COUNT],
         child: i16,
         new_file_format: bool,
+        version: u8,
     ) -> Result<()> {
         // Determine if this side has textures
         let is_solid = child == -1;
         let has_wall = side.wall_num != 0xFFFF;
         let has_texture = is_solid || has_wall;
 
-        // TODO: Support v25+ corner indices
+        // Read corner indices (v25+ only)
+        if version >= 25 {
+            side.corners = [
+                cursor.read_u8()?,
+                cursor.read_u8()?,
+                cursor.read_u8()?,
+                cursor.read_u8()?,
+            ];
+        }
+        // For v < 25, corners remain at default [0, 1, 2, 3] from Side::default()
 
         if !has_texture {
             // No texture data
