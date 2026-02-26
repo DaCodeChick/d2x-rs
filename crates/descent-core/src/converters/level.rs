@@ -55,10 +55,10 @@ use crate::converters::texture::TextureConverter;
 use crate::error::{AssetError, Result};
 use crate::geometry::{FixVector, Uvl};
 use crate::ham::HamFile;
-use crate::level::{Level, SIDE_CORNER_COUNT, Segment, Side, SideType};
+use crate::level::{Level, Segment, Side, SideType, SIDE_CORNER_COUNT};
 use crate::palette::Palette;
 use crate::pig::PigFile;
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use gltf_json as json;
 use gltf_json::validation::USize64;
 use std::collections::{HashMap, HashSet};
@@ -121,6 +121,13 @@ impl GeometryData {
     }
 }
 
+/// Material-grouped index data for creating separate primitives.
+#[derive(Debug, Clone)]
+struct MaterialGroup {
+    material_id: u32,
+    indices: Vec<u32>,
+}
+
 /// Buffer layout information for glTF structure.
 struct BufferLayout {
     positions_offset: usize,
@@ -129,8 +136,8 @@ struct BufferLayout {
     normals_length: usize,
     uvs_offset: usize,
     uvs_length: usize,
-    indices_offset: usize,
-    indices_length: usize,
+    /// Offset and length for each material group's indices
+    material_index_ranges: Vec<(usize, usize)>,
 }
 
 impl LevelConverter {
@@ -188,12 +195,16 @@ impl LevelConverter {
         // Build geometry data
         let geometry = self.build_geometry(level, palette)?;
 
-        // Build binary buffer
-        let buffer_data = self.build_buffer(
+        // Group indices by material for separate primitives
+        let material_groups =
+            Self::group_indices_by_material(&geometry.indices, &geometry.material_indices);
+
+        // Build binary buffer with material-grouped indices
+        let buffer_data = self.build_buffer_with_materials(
             &geometry.positions,
             &geometry.normals,
             &geometry.uvs,
-            &geometry.indices,
+            &material_groups,
         )?;
 
         // Build glTF JSON
@@ -203,8 +214,7 @@ impl LevelConverter {
             &geometry.positions,
             &geometry.normals,
             &geometry.uvs,
-            &geometry.indices,
-            &geometry.material_indices,
+            &material_groups,
             &texture_images,
             palette,
         )?;
@@ -336,6 +346,40 @@ impl LevelConverter {
         Ok(geometry)
     }
 
+    /// Group triangle indices by material ID.
+    ///
+    /// Takes the flat index array and material_indices array (one entry per triangle),
+    /// and returns a vector of MaterialGroup structs, each containing indices for
+    /// triangles of that material. Groups are sorted by material_id for deterministic output.
+    fn group_indices_by_material(indices: &[u32], material_indices: &[u32]) -> Vec<MaterialGroup> {
+        // material_indices contains one entry per triangle
+        // indices contains 3 entries per triangle (one triangle = 3 indices)
+
+        // Build a map of material_id -> Vec<triangle_indices>
+        let mut material_map: HashMap<u32, Vec<u32>> = HashMap::new();
+
+        for (tri_idx, &mat_id) in material_indices.iter().enumerate() {
+            let start_idx = tri_idx * 3;
+            let tri_indices = &indices[start_idx..start_idx + 3];
+            material_map
+                .entry(mat_id)
+                .or_default()
+                .extend_from_slice(tri_indices);
+        }
+
+        // Convert to sorted vector (sort by material_id for deterministic output)
+        let mut groups: Vec<MaterialGroup> = material_map
+            .into_iter()
+            .map(|(material_id, indices)| MaterialGroup {
+                material_id,
+                indices,
+            })
+            .collect();
+        groups.sort_by_key(|g| g.material_id);
+
+        groups
+    }
+
     /// Get the number of triangles for a side type.
     const fn triangle_count_for_side_type(side_type: SideType) -> usize {
         match side_type {
@@ -455,12 +499,16 @@ impl LevelConverter {
     }
 
     /// Build binary buffer containing all geometry data.
-    fn build_buffer(
+    /// Build binary buffer with material-grouped indices.
+    ///
+    /// Writes vertex attributes (positions, normals, UVs) once, then writes
+    /// index data for each material group sequentially.
+    fn build_buffer_with_materials(
         &self,
         positions: &[f32],
         normals: &[f32],
         uvs: &[f32],
-        indices: &[u32],
+        material_groups: &[MaterialGroup],
     ) -> Result<Vec<u8>> {
         let mut buffer = Vec::new();
 
@@ -488,11 +536,14 @@ impl LevelConverter {
         }
         Self::align_buffer_to_4_bytes(&mut buffer);
 
-        // Write indices (SCALAR u32)
-        for &idx in indices {
-            buffer
-                .write_all(&idx.to_le_bytes())
-                .map_err(|e| AssetError::Other(format!("Failed to write indices: {}", e)))?;
+        // Write indices for each material group (SCALAR u32)
+        for group in material_groups {
+            for &idx in &group.indices {
+                buffer
+                    .write_all(&idx.to_le_bytes())
+                    .map_err(|e| AssetError::Other(format!("Failed to write indices: {}", e)))?;
+            }
+            Self::align_buffer_to_4_bytes(&mut buffer);
         }
 
         Ok(buffer)
@@ -505,22 +556,30 @@ impl LevelConverter {
         }
     }
 
-    /// Calculate buffer view offsets and lengths.
+    /// Calculate buffer view offsets and lengths for material-grouped layout.
     fn calculate_buffer_layout(
         positions: &[f32],
         normals: &[f32],
         uvs: &[f32],
-        indices: &[u32],
+        material_groups: &[MaterialGroup],
     ) -> BufferLayout {
         let positions_byte_length = positions.len() * 4;
         let normals_byte_length = normals.len() * 4;
         let uvs_byte_length = uvs.len() * 4;
-        let indices_byte_length = indices.len() * 4;
 
         let positions_offset = 0;
         let normals_offset = (positions_offset + positions_byte_length).div_ceil(4) * 4;
         let uvs_offset = (normals_offset + normals_byte_length).div_ceil(4) * 4;
-        let indices_offset = (uvs_offset + uvs_byte_length).div_ceil(4) * 4;
+
+        // Calculate offset and length for each material group's indices
+        let mut current_offset = (uvs_offset + uvs_byte_length).div_ceil(4) * 4;
+        let mut material_index_ranges = Vec::new();
+
+        for group in material_groups {
+            let byte_length = group.indices.len() * 4;
+            material_index_ranges.push((current_offset, byte_length));
+            current_offset = (current_offset + byte_length).div_ceil(4) * 4;
+        }
 
         BufferLayout {
             positions_offset,
@@ -529,8 +588,7 @@ impl LevelConverter {
             normals_length: normals_byte_length,
             uvs_offset,
             uvs_length: uvs_byte_length,
-            indices_offset,
-            indices_length: indices_byte_length,
+            material_index_ranges,
         }
     }
 
@@ -548,7 +606,7 @@ impl LevelConverter {
             extras: Default::default(),
         };
 
-        let views = vec![
+        let mut views = vec![
             json::buffer::View {
                 name: Some(format!("{} - Positions BufferView", name)),
                 buffer: json::Index::new(0),
@@ -585,34 +643,41 @@ impl LevelConverter {
                 extensions: Default::default(),
                 extras: Default::default(),
             },
-            json::buffer::View {
-                name: Some(format!("{} - Indices BufferView", name)),
+        ];
+
+        // Add buffer view for each material group's indices
+        for (mat_idx, &(offset, length)) in layout.material_index_ranges.iter().enumerate() {
+            views.push(json::buffer::View {
+                name: Some(format!(
+                    "{} - Material {} Indices BufferView",
+                    name, mat_idx
+                )),
                 buffer: json::Index::new(0),
-                byte_offset: Some(USize64::from(layout.indices_offset)),
-                byte_length: USize64::from(layout.indices_length),
+                byte_offset: Some(USize64::from(offset)),
+                byte_length: USize64::from(length),
                 byte_stride: None,
                 target: Some(json::validation::Checked::Valid(
                     json::buffer::Target::ElementArrayBuffer,
                 )),
                 extensions: Default::default(),
                 extras: Default::default(),
-            },
-        ];
+            });
+        }
 
         (buffer, views)
     }
 
-    /// Create accessors for glTF geometry data.
+    /// Create accessors for glTF geometry data with material groups.
     fn create_accessors(
         name: &str,
         positions: &[f32],
         normals: &[f32],
         uvs: &[f32],
-        indices: &[u32],
+        material_groups: &[MaterialGroup],
         min_pos: Vec<f32>,
         max_pos: Vec<f32>,
     ) -> Vec<json::Accessor> {
-        vec![
+        let mut accessors = vec![
             json::Accessor {
                 name: Some(format!("{} - Positions", name)),
                 buffer_view: Some(json::Index::new(0)),
@@ -661,11 +726,16 @@ impl LevelConverter {
                 extensions: Default::default(),
                 extras: Default::default(),
             },
-            json::Accessor {
-                name: Some(format!("{} - Indices", name)),
-                buffer_view: Some(json::Index::new(3)),
+        ];
+
+        // Add accessor for each material group's indices
+        // Buffer views start at index 3 (after positions, normals, UVs)
+        for (mat_idx, group) in material_groups.iter().enumerate() {
+            accessors.push(json::Accessor {
+                name: Some(format!("{} - Material {} Indices", name, mat_idx)),
+                buffer_view: Some(json::Index::new((3 + mat_idx) as u32)),
                 byte_offset: Some(USize64::from(0usize)),
-                count: USize64::from(indices.len()),
+                count: USize64::from(group.indices.len()),
                 component_type: json::validation::Checked::Valid(
                     json::accessor::GenericComponentType(json::accessor::ComponentType::U32),
                 ),
@@ -676,8 +746,10 @@ impl LevelConverter {
                 sparse: None,
                 extensions: Default::default(),
                 extras: Default::default(),
-            },
-        ]
+            });
+        }
+
+        accessors
     }
 
     /// Create images and textures from texture data URIs.
@@ -720,26 +792,21 @@ impl LevelConverter {
     }
 
     /// Create materials for each unique texture ID.
+    /// Create materials from unique material IDs.
     fn create_materials(
         name: &str,
-        material_indices: &[u32],
+        material_ids: &[u32],
         texture_index_map: &HashMap<u16, json::Index<json::Texture>>,
         palette: Option<&Palette>,
-    ) -> (Vec<json::Material>, HashMap<u16, u32>) {
-        // Get unique texture IDs
-        let unique_texture_ids: Vec<u16> = {
-            let mut ids: Vec<u16> = material_indices.iter().map(|&id| id as u16).collect();
-            ids.sort_unstable();
-            ids.dedup();
-            ids
-        };
-
+    ) -> (Vec<json::Material>, HashMap<u32, usize>) {
         let mut materials = Vec::new();
         let mut material_id_to_index = HashMap::new();
 
-        for texture_id in unique_texture_ids {
-            let material_idx = materials.len() as u32;
-            material_id_to_index.insert(texture_id, material_idx);
+        for &material_id in material_ids {
+            let material_idx = materials.len();
+            material_id_to_index.insert(material_id, material_idx);
+
+            let texture_id = material_id as u16;
 
             let pbr = if let Some(&texture_idx) = texture_index_map.get(&texture_id) {
                 // Textured material
@@ -800,33 +867,51 @@ impl LevelConverter {
     }
 
     /// Create mesh with primitives.
-    fn create_mesh(name: &str) -> (json::Mesh, Vec<json::mesh::Primitive>) {
-        // TODO: Group triangles by material and create separate primitives
-        // For now, create one primitive with default material
-        let primitives = vec![json::mesh::Primitive {
-            attributes: {
-                let mut map = std::collections::BTreeMap::new();
-                map.insert(
-                    json::validation::Checked::Valid(json::mesh::Semantic::Positions),
-                    json::Index::new(0),
-                );
-                map.insert(
-                    json::validation::Checked::Valid(json::mesh::Semantic::Normals),
-                    json::Index::new(1),
-                );
-                map.insert(
-                    json::validation::Checked::Valid(json::mesh::Semantic::TexCoords(0)),
-                    json::Index::new(2),
-                );
-                map
-            },
-            indices: Some(json::Index::new(3)),
-            material: Some(json::Index::new(0)),
-            mode: json::validation::Checked::Valid(json::mesh::Mode::Triangles),
-            targets: None,
-            extensions: Default::default(),
-            extras: Default::default(),
-        }];
+    /// Create mesh with primitives grouped by material.
+    ///
+    /// Creates one primitive per material group, with each primitive referencing
+    /// shared vertex attributes (positions, normals, UVs) but different index accessors.
+    fn create_mesh(
+        name: &str,
+        material_groups: &[MaterialGroup],
+        material_id_to_index: &HashMap<u32, usize>,
+    ) -> (json::Mesh, Vec<json::mesh::Primitive>) {
+        let mut primitives = Vec::new();
+
+        // Create one primitive per material group
+        // Accessor indices: 0=positions, 1=normals, 2=UVs, 3+=indices (one per material)
+        for (mat_idx, group) in material_groups.iter().enumerate() {
+            // Map material_id to glTF material index
+            let material_index = material_id_to_index
+                .get(&group.material_id)
+                .copied()
+                .unwrap_or(0);
+
+            primitives.push(json::mesh::Primitive {
+                attributes: {
+                    let mut map = std::collections::BTreeMap::new();
+                    map.insert(
+                        json::validation::Checked::Valid(json::mesh::Semantic::Positions),
+                        json::Index::new(0), // Shared positions
+                    );
+                    map.insert(
+                        json::validation::Checked::Valid(json::mesh::Semantic::Normals),
+                        json::Index::new(1), // Shared normals
+                    );
+                    map.insert(
+                        json::validation::Checked::Valid(json::mesh::Semantic::TexCoords(0)),
+                        json::Index::new(2), // Shared UVs
+                    );
+                    map
+                },
+                indices: Some(json::Index::new((3 + mat_idx) as u32)), // Per-material indices
+                material: Some(json::Index::new(material_index as u32)),
+                mode: json::validation::Checked::Valid(json::mesh::Mode::Triangles),
+                targets: None,
+                extensions: Default::default(),
+                extras: Default::default(),
+            });
+        }
 
         let mesh = json::Mesh {
             name: Some(format!("{} - Mesh", name)),
@@ -875,8 +960,7 @@ impl LevelConverter {
         positions: &[f32],
         normals: &[f32],
         uvs: &[f32],
-        indices: &[u32],
-        material_indices: &[u32],
+        material_groups: &[MaterialGroup],
         texture_images: &HashMap<u16, String>,
         palette: Option<&Palette>,
     ) -> Result<json::Root> {
@@ -889,8 +973,8 @@ impl LevelConverter {
             ..Default::default()
         };
 
-        // Calculate buffer layout
-        let layout = Self::calculate_buffer_layout(positions, normals, uvs, indices);
+        // Calculate buffer layout with material groups
+        let layout = Self::calculate_buffer_layout(positions, normals, uvs, material_groups);
 
         // Create buffer and buffer views
         let (buffer, views) = Self::create_buffer_and_views(name, buffer_data, &layout);
@@ -899,8 +983,15 @@ impl LevelConverter {
 
         // Compute bounds and create accessors
         let (min_pos, max_pos) = self.compute_bounds(positions);
-        let accessors =
-            Self::create_accessors(name, positions, normals, uvs, indices, min_pos, max_pos);
+        let accessors = Self::create_accessors(
+            name,
+            positions,
+            normals,
+            uvs,
+            material_groups,
+            min_pos,
+            max_pos,
+        );
         root.accessors.extend(accessors);
 
         // Create images and textures
@@ -909,13 +1000,16 @@ impl LevelConverter {
         root.images.extend(images);
         root.textures.extend(textures);
 
+        // Extract unique material IDs from groups
+        let material_ids: Vec<u32> = material_groups.iter().map(|g| g.material_id).collect();
+
         // Create materials
-        let (materials, _material_id_to_index) =
-            Self::create_materials(name, material_indices, &texture_index_map, palette);
+        let (materials, material_id_to_index) =
+            Self::create_materials(name, &material_ids, &texture_index_map, palette);
         root.materials.extend(materials);
 
-        // Create mesh and scene hierarchy
-        let (mesh, _primitives) = Self::create_mesh(name);
+        // Create mesh with material-grouped primitives
+        let (mesh, _primitives) = Self::create_mesh(name, material_groups, &material_id_to_index);
         root.meshes.push(mesh);
 
         let (node, scene) = Self::create_scene_hierarchy(name);
