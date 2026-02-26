@@ -16,8 +16,6 @@ find_package(Qt6 REQUIRED COMPONENTS
     Core
     Widgets
     Gui
-    OpenGL
-    OpenGLWidgets
 )
 
 # Compiler warnings
@@ -44,8 +42,6 @@ target_link_libraries(dle PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Gui
-    Qt6::OpenGL
-    Qt6::OpenGLWidgets
     dle_core
     dle_render
     dle_ui
