@@ -149,16 +149,15 @@ inline constexpr Vec3<fix>& Vec3<fix>::operator*=(fix scalar) {
     return *this;
 }
 
-// Conversion constructors
-template<>
-template<>
+// Explicit specializations of conversion constructor
+// Syntax: template<> (for class specialization) template<> (for member template specialization)
+template<> template<>
 inline Vec3<double>::Vec3(const Vec3<fix>& other)
     : x(fixToDouble(other.x))
     , y(fixToDouble(other.y))
     , z(fixToDouble(other.z)) {}
 
-template<>
-template<>
+template<> template<>
 inline Vec3<fix>::Vec3(const Vec3<double>& other)
     : x(doubleToFix(other.x))
     , y(doubleToFix(other.y))
