@@ -77,6 +77,7 @@ private:
     void createPipeline();
     void buildMeshBuffers();
     void buildWireframeBuffers();
+    void uploadBuffersToGPU();
 
     // RHI resources
     QRhi* m_rhi = nullptr;
