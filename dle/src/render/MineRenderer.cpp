@@ -1,8 +1,17 @@
 #include "render/MineRenderer.h"
 #include "core/types/Types.h"
 #include <QFile>
+#include <QDir>
 #include <format>
 #include <print>
+
+// Initialize resources before entering namespace
+// This must be at global scope for Q_INIT_RESOURCE to work correctly
+static struct ResourceInitializer {
+    ResourceInitializer() {
+        Q_INIT_RESOURCE(shaders);
+    }
+} _resourceInit;
 
 namespace dle {
 
@@ -25,7 +34,7 @@ void MineRenderer::initialize(QRhi* rhi) {
     }
 
     createShaders();
-    createPipeline();
+    // Pipeline creation is deferred until first render when we have a render target
 }
 
 void MineRenderer::cleanup() {
@@ -68,21 +77,43 @@ void MineRenderer::render(QRhiCommandBuffer* cb, QRhiRenderTarget* renderTarget)
         updateBuffers();
     }
 
-    // TODO: Implement actual GPU drawing
-    // For now, just ensure buffers are created
-    // Next step: Add proper shader loading and pipeline configuration
-    Q_UNUSED(cb);
-    Q_UNUSED(renderTarget);
+    // Create pipeline on first render when we have a render target
+    if (!m_pipeline) {
+        createPipeline(renderTarget);
+    }
+
+    if (!m_pipeline || !m_vertexBuffer || !m_indexBuffer) {
+        return;
+    }
+
+    // Update uniform buffer with MVP matrix
+    QMatrix4x4 mvpMatrix = m_projectionMatrix * m_viewMatrix;
+    QRhiResourceUpdateBatch* resourceUpdates = m_rhi->nextResourceUpdateBatch();
+    resourceUpdates->updateDynamicBuffer(m_uniformBuffer.get(), 0, 64, mvpMatrix.constData());
+    cb->resourceUpdate(resourceUpdates);
+
+    // Set up graphics pipeline state
+    cb->setGraphicsPipeline(m_pipeline.get());
+    cb->setShaderResources(m_srb.get());
+    cb->setViewport(QRhiViewport(0, 0, renderTarget->pixelSize().width(), renderTarget->pixelSize().height()));
+
+    // Bind vertex and index buffers
+    const QRhiCommandBuffer::VertexInput vertexBindings[] = {
+        { m_vertexBuffer.get(), 0 }
+    };
+    cb->setVertexInput(0, 1, vertexBindings, m_indexBuffer.get(), 0, QRhiCommandBuffer::IndexUInt16);
+
+    // Draw the wireframe
+    cb->drawIndexed(static_cast<quint32>(m_indices.size()));
 }
 
 void MineRenderer::createShaders() {
-    // For simplicity, we'll use inline GLSL and let Qt compile it
-    // In a production app, you'd pre-compile shaders to .qsb files
-    std::println("MineRenderer: Shaders will be created as part of pipeline creation");
+    // Shaders are loaded as part of pipeline creation from .qsb files
+    std::println("MineRenderer: Shaders will be loaded from .qsb files");
 }
 
-void MineRenderer::createPipeline() {
-    if (!m_rhi) {
+void MineRenderer::createPipeline(QRhiRenderTarget* renderTarget) {
+    if (!m_rhi || !renderTarget) {
         return;
     }
 
@@ -104,12 +135,58 @@ void MineRenderer::createPipeline() {
         return;
     }
 
+    // Load shaders from .qsb files
+    QShader vertShader = QShader::fromSerialized(loadShaderFile(":/shaders/basic.vert.qsb"));
+    QShader fragShader = QShader::fromSerialized(loadShaderFile(":/shaders/basic.frag.qsb"));
+    
+    if (!vertShader.isValid()) {
+        std::println(stderr, "Failed to load vertex shader");
+        return;
+    }
+    if (!fragShader.isValid()) {
+        std::println(stderr, "Failed to load fragment shader");
+        return;
+    }
+
     // Create graphics pipeline
     m_pipeline.reset(m_rhi->newGraphicsPipeline());
+    
+    // Set up pipeline state
+    m_pipeline->setShaderStages({
+        { QRhiShaderStage::Vertex, vertShader },
+        { QRhiShaderStage::Fragment, fragShader }
+    });
 
-    // For now, we'll skip shader creation since it requires .qsb files or runtime compilation
-    // TODO: Add proper shader loading
-    std::println("MineRenderer: Pipeline creation - need to add shader loading");
+    // Vertex input layout: position (vec3) + color (vec4)
+    QRhiVertexInputLayout inputLayout;
+    inputLayout.setBindings({
+        { 7 * sizeof(float) }  // stride: 3 floats (pos) + 4 floats (color)
+    });
+    inputLayout.setAttributes({
+        { 0, 0, QRhiVertexInputAttribute::Float3, 0 },                    // position at offset 0
+        { 0, 1, QRhiVertexInputAttribute::Float4, 3 * sizeof(float) }     // color at offset 12
+    });
+    m_pipeline->setVertexInputLayout(inputLayout);
+
+    m_pipeline->setShaderResourceBindings(m_srb.get());
+    m_pipeline->setRenderPassDescriptor(renderTarget->renderPassDescriptor());
+    m_pipeline->setTopology(QRhiGraphicsPipeline::Lines);  // Wireframe rendering
+
+    if (!m_pipeline->create()) {
+        std::println(stderr, "Failed to create graphics pipeline");
+        return;
+    }
+
+    std::println("MineRenderer: Pipeline created successfully");
+}
+
+QByteArray MineRenderer::loadShaderFile(const QString& filename) {
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
+        std::println(stderr, "Failed to open shader file: {}", filename.toStdString());
+        return QByteArray();
+    }
+    return file.readAll();
 }
 
 void MineRenderer::buildWireframeBuffers() {

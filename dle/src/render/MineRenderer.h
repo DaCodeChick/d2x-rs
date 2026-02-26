@@ -3,6 +3,7 @@
 #include "core/mine/Mine.h"
 #include <rhi/qrhi.h>
 #include <QMatrix4x4>
+#include <QString>
 #include <memory>
 #include <vector>
 
@@ -74,10 +75,11 @@ private:
     };
 
     void createShaders();
-    void createPipeline();
+    void createPipeline(QRhiRenderTarget* renderTarget);
     void buildMeshBuffers();
     void buildWireframeBuffers();
     void uploadBuffersToGPU();
+    QByteArray loadShaderFile(const QString& filename);
 
     // RHI resources
     QRhi* m_rhi = nullptr;

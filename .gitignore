@@ -68,6 +68,9 @@ ui_*.h
 *.pro.user.*
 .qmake.stash
 
+# Qt Shaders - compiled .qsb files are build artifacts
+*.qsb
+
 # Qt Creator
 *.autosave
 *.user
