@@ -2,9 +2,14 @@
 
 #include <QRhiWidget>
 #include <QColor>
+#include <QMatrix4x4>
 #include <memory>
 
 namespace dle {
+
+// Forward declarations
+class Mine;
+class MineRenderer;
 
 /**
  * @brief 3D viewport widget for rendering Descent levels using Qt RHI
@@ -12,10 +17,9 @@ namespace dle {
  * This widget uses Qt's Render Hardware Interface (RHI) for cross-platform
  * graphics rendering (Metal/Vulkan/D3D11/D3D12/OpenGL).
  * 
- * Currently renders a simple clear color as a proof of concept.
- * Future enhancements will add:
+ * Features:
+ * - Mine geometry rendering (wireframe/solid)
  * - Camera controls (WASD + mouse look)
- * - Mine geometry rendering
  * - Segment selection and highlighting
  */
 class LevelViewport : public QRhiWidget {
@@ -23,7 +27,18 @@ class LevelViewport : public QRhiWidget {
 
 public:
     explicit LevelViewport(QWidget* parent = nullptr);
-    ~LevelViewport() override = default;
+    ~LevelViewport() override;
+
+    /**
+     * @brief Set the mine to display
+     */
+    void setMine(const Mine* mine);
+
+    /**
+     * @brief Enable/disable wireframe mode
+     */
+    void setWireframeMode(bool enabled);
+    bool isWireframeMode() const;
 
 protected:
     /**
@@ -39,6 +54,18 @@ protected:
     void render(QRhiCommandBuffer* cb) override;
 
 private:
+    void updateCamera();
+
+    // Renderer
+    std::unique_ptr<MineRenderer> m_renderer;
+
+    // Camera
+    QMatrix4x4 m_viewMatrix;
+    QMatrix4x4 m_projectionMatrix;
+    float m_cameraDistance = 50.0f;
+    float m_cameraYaw = 0.0f;
+    float m_cameraPitch = 0.0f;
+
     // Background clear color (dark gray)
     QColor m_clearColor{51, 51, 51}; // RGB: (51, 51, 51) ≈ 0.2 * 255
 };

@@ -65,6 +65,11 @@ void MainWindow::newLevel() {
     m_currentFilename.clear();
     updateWindowTitle();
     
+    // Update viewport with new mine
+    if (ui->viewport) {
+        ui->viewport->setMine(m_mine.get());
+    }
+    
     ui->statusbar->showMessage("New level created", 2000);
 }
 
@@ -76,6 +81,12 @@ bool MainWindow::openLevel(const QString& filename) {
     
     m_currentFilename = filename;
     updateWindowTitle();
+    
+    // Update viewport with loaded mine
+    if (ui->viewport) {
+        ui->viewport->setMine(m_mine.get());
+    }
+    
     ui->statusbar->showMessage("Loaded: " + filename, 2000);
     return true;
 }
@@ -196,18 +207,24 @@ void MainWindow::onEditDelete() {
 
 // View menu slots
 void MainWindow::onViewWireframe() {
-    // TODO: Implement wireframe view
-    ui->statusbar->showMessage("Wireframe view", 2000);
+    if (ui->viewport) {
+        bool enabled = ui->actionWireframe->isChecked();
+        ui->viewport->setWireframeMode(enabled);
+        ui->statusbar->showMessage(enabled ? "Wireframe view enabled" : "Wireframe view disabled", 2000);
+    }
 }
 
 void MainWindow::onViewTextured() {
-    // TODO: Implement textured view
-    ui->statusbar->showMessage("Textured view", 2000);
+    if (ui->viewport) {
+        bool enabled = ui->actionTextured->isChecked();
+        ui->viewport->setWireframeMode(!enabled); // Textured = not wireframe
+        ui->statusbar->showMessage(enabled ? "Textured view enabled" : "Textured view disabled", 2000);
+    }
 }
 
 void MainWindow::onViewLighting() {
     // TODO: Implement lighting view
-    ui->statusbar->showMessage("Lighting view", 2000);
+    ui->statusbar->showMessage("Lighting toggle not yet implemented", 2000);
 }
 
 // Help menu slots
