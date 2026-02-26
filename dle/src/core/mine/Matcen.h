@@ -4,11 +4,9 @@
 #include <cstdint>
 #include <array>
 
-namespace dle {
+class QDataStream;  // Qt forward declaration
 
-// Forward declarations
-class FileReader;
-class FileWriter;
+namespace dle {
 
 /**
  * @brief Matcen (Materialization Center) - Robot/equipment generator
@@ -68,8 +66,8 @@ public:
     }
     
     // File I/O
-    void read(FileReader& reader, int levelVersion);
-    void write(FileWriter& writer, int levelVersion) const;
+    void read(QDataStream& stream, int levelVersion);
+    void write(QDataStream& stream, int levelVersion) const;
     
 private:
     std::array<int32_t, 2> m_objectFlags;  // Bitmask for up to 64 object types

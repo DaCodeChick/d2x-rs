@@ -1,6 +1,5 @@
 #include "Trigger.h"
-#include "../io/FileReader.h"
-#include "../io/FileWriter.h"
+#include <QDataStream>
 #include <algorithm>
 
 namespace dle {
@@ -61,61 +60,66 @@ void Trigger::clearTargets() {
     }
 }
 
-void Trigger::read(FileReader& reader, bool isObjectTrigger, int levelVersion) {
+void Trigger::read(QDataStream& stream, bool isObjectTrigger, int levelVersion) {
+    uint8_t type_val;
+    int8_t targetCount;
+    
     // Read trigger type
-    m_type = static_cast<TriggerType>(reader.readUInt8());
+    stream >> type_val;
+    m_type = static_cast<TriggerType>(type_val);
     
     // Read flags
-    m_flags = reader.readUInt16();
+    stream >> m_flags;
     
     // Read value (as fix)
-    m_value = reader.readFix();
+    stream >> m_value;
     
     // Read time (as fix)
-    m_time = reader.readFix();
+    stream >> m_time;
     
     // Read number of targets
-    m_targetCount = std::min(reader.readInt8(), static_cast<int8_t>(MAX_TRIGGER_TARGETS));
+    stream >> targetCount;
+    m_targetCount = std::min(targetCount, static_cast<int8_t>(MAX_TRIGGER_TARGETS));
     
     // Read object index (for object triggers)
     if (isObjectTrigger) {
-        m_object = reader.readInt16();
+        stream >> m_object;
     } else {
         m_object = -1;
     }
     
     // Read targets
     for (int i = 0; i < m_targetCount; ++i) {
-        m_targets[i].segmentId = reader.readInt16();
-        m_targets[i].sideId = reader.readInt16();
+        stream >> m_targets[i].segmentId;
+        stream >> m_targets[i].sideId;
     }
 }
 
-void Trigger::write(FileWriter& writer, bool isObjectTrigger, int levelVersion) const {
+void Trigger::write(QDataStream& stream, bool isObjectTrigger, int levelVersion) const {
     // Write trigger type
-    writer.writeUInt8(static_cast<uint8_t>(m_type));
+    stream << static_cast<uint8_t>(m_type);
     
     // Write flags
-    writer.writeUInt16(m_flags);
+    stream << m_flags;
     
     // Write value (as fix)
-    writer.writeFix(m_value);
+    stream << m_value;
     
     // Write time (as fix)
-    writer.writeFix(m_time);
+    stream << m_time;
     
     // Write number of targets
-    writer.writeInt8(m_targetCount);
+    stream << m_targetCount;
     
     // Write object index (for object triggers)
     if (isObjectTrigger) {
-        writer.writeInt16(m_object);
+        stream << m_object;
     }
     
     // Write targets
     for (int i = 0; i < m_targetCount; ++i) {
-        writer.writeInt16(m_targets[i].segmentId);
-        writer.writeInt16(m_targets[i].sideId);
+        stream << m_targets[i].segmentId;
+        stream << m_targets[i].sideId;
     }
 }
 
@@ -165,25 +169,28 @@ void ReactorTrigger::clearTargets() {
     }
 }
 
-void ReactorTrigger::read(FileReader& reader) {
+void ReactorTrigger::read(QDataStream& stream) {
+    int8_t targetCount;
+    
     // Read number of targets
-    m_targetCount = std::min(reader.readInt8(), static_cast<int8_t>(MAX_TRIGGER_TARGETS));
+    stream >> targetCount;
+    m_targetCount = std::min(targetCount, static_cast<int8_t>(MAX_TRIGGER_TARGETS));
     
     // Read targets
     for (int i = 0; i < m_targetCount; ++i) {
-        m_targets[i].segmentId = reader.readInt16();
-        m_targets[i].sideId = reader.readInt16();
+        stream >> m_targets[i].segmentId;
+        stream >> m_targets[i].sideId;
     }
 }
 
-void ReactorTrigger::write(FileWriter& writer) const {
+void ReactorTrigger::write(QDataStream& stream) const {
     // Write number of targets
-    writer.writeInt8(m_targetCount);
+    stream << m_targetCount;
     
     // Write targets
     for (int i = 0; i < m_targetCount; ++i) {
-        writer.writeInt16(m_targets[i].segmentId);
-        writer.writeInt16(m_targets[i].sideId);
+        stream << m_targets[i].segmentId;
+        stream << m_targets[i].sideId;
     }
 }
 

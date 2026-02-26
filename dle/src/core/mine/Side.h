@@ -5,6 +5,8 @@
 #include <memory>
 #include <array>
 
+class QDataStream;  // Qt forward declaration
+
 namespace dle {
 
 // Forward declarations
@@ -136,8 +138,8 @@ public:
     bool isTagged(uint8_t mask = TAGGED) const { return (m_tag & mask) != 0; }
     
     // File I/O
-    void read(class FileReader& reader, bool textured);
-    void write(class FileWriter& writer, bool textured) const;
+    void read(QDataStream& stream, bool textured);
+    void write(QDataStream& stream, bool textured) const;
 
 private:
     int16_t m_parentSegmentId;           // Parent segment index

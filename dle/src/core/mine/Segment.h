@@ -6,6 +6,8 @@
 #include <array>
 #include <memory>
 
+class QDataStream;  // Qt forward declaration
+
 namespace dle {
 
 // Side vertex indices (which vertices of the segment form each side)
@@ -209,10 +211,10 @@ public:
     int findCommonSide(int sideIndex, const Segment& other, int& outOtherSideIndex) const;
     
     // File I/O
-    void read(class FileReader& reader);
-    void write(class FileWriter& writer) const;
-    void readExtras(class FileReader& reader, bool hasExtras);
-    void writeExtras(class FileWriter& writer, bool hasExtras) const;
+    void read(QDataStream& stream);
+    void write(QDataStream& stream) const;
+    void readExtras(QDataStream& stream, bool hasExtras);
+    void writeExtras(QDataStream& stream, bool hasExtras) const;
 
 private:
     std::array<uint16_t, NUM_VERTICES_PER_SEGMENT> m_vertexIds;  // 8 vertex IDs

@@ -5,11 +5,9 @@
 #include <cstdint>
 #include <string>
 
-namespace dle {
+class QDataStream;  // Qt forward declaration
 
-// Forward declaration
-class FileReader;
-class FileWriter;
+namespace dle {
 
 /**
  * @brief Object types
@@ -105,8 +103,8 @@ struct PhysicsInfo {
     
     PhysicsInfo();
     void clear();
-    void read(FileReader& reader);
-    void write(FileWriter& writer) const;
+    void read(QDataStream& stream);
+    void write(QDataStream& stream) const;
 };
 
 /**
@@ -119,8 +117,8 @@ struct AIInfo {
     
     AIInfo();
     void clear();
-    void read(FileReader& reader);
-    void write(FileWriter& writer) const;
+    void read(QDataStream& stream);
+    void write(QDataStream& stream) const;
 };
 
 /**
@@ -131,8 +129,8 @@ struct PowerupInfo {
     
     PowerupInfo();
     void clear();
-    void read(FileReader& reader);
-    void write(FileWriter& writer) const;
+    void read(QDataStream& stream);
+    void write(QDataStream& stream) const;
 };
 
 /**
@@ -238,8 +236,8 @@ public:
     bool isWeapon() const { return m_type == ObjectType::Weapon; }
     
     // File I/O
-    void read(FileReader& reader, int levelVersion);
-    void write(FileWriter& writer, int levelVersion) const;
+    void read(QDataStream& stream, int levelVersion);
+    void write(QDataStream& stream, int levelVersion) const;
 
 private:
     // Basic info

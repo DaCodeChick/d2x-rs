@@ -1,6 +1,5 @@
 #include "Segment.h"
-#include "../io/FileReader.h"
-#include "../io/FileWriter.h"
+#include <QDataStream>
 #include <algorithm>
 #include <cstring>
 
@@ -169,81 +168,80 @@ int Segment::findCommonSide(int sideIndex, const Segment& other, int& outOtherSi
     return 0;
 }
 
-void Segment::read(class FileReader& reader) {
+void Segment::read(QDataStream& stream) {
     // Read segment data structure (basic D1/D2 format)
     // Read sides first (6 sides)
     for (int i = 0; i < NUM_SIDES; ++i) {
-        m_sides[i].read(reader, true);
+        m_sides[i].read(stream, true);
     }
     
     // Read children (6 child indices)
     for (int i = 0; i < NUM_SIDES; ++i) {
-        int16_t childId = reader.readInt16();
+        int16_t childId;
+        stream >> childId;
         setChildId(i, childId);
     }
     
     // Read vertex IDs (8 vertices)
     for (int i = 0; i < NUM_VERTICES_PER_SEGMENT; ++i) {
-        m_vertexIds[i] = reader.readUInt16();
+        stream >> m_vertexIds[i];
     }
     
     // Read special attributes
-    m_staticLight = reader.readInt16();  // Static light value
+    stream >> m_staticLight;  // Static light value
     
     // Skip wall bitmap mask (not used in modern editor)
-    reader.skip(2);
+    stream.skipRawData(2);
 }
 
-void Segment::write(class FileWriter& writer) const {
+void Segment::write(QDataStream& stream) const {
     // Write segment data structure (basic D1/D2 format)
     // Write sides first (6 sides)
     for (int i = 0; i < NUM_SIDES; ++i) {
-        m_sides[i].write(writer, true);
+        m_sides[i].write(stream, true);
     }
     
     // Write children (6 child indices)
     for (int i = 0; i < NUM_SIDES; ++i) {
-        writer.writeInt16(m_sides[i].getChild());
+        stream << m_sides[i].getChild();
     }
     
     // Write vertex IDs (8 vertices)
     for (int i = 0; i < NUM_VERTICES_PER_SEGMENT; ++i) {
-        writer.writeUInt16(m_vertexIds[i]);
+        stream << m_vertexIds[i];
     }
     
     // Write special attributes
-    writer.writeInt16(m_staticLight);
+    stream << m_staticLight;
     
     // Write wall bitmap mask (set to 0)
-    writer.writeUInt16(0);
+    stream << static_cast<uint16_t>(0);
 }
 
-void Segment::readExtras(class FileReader& reader, bool hasExtras) {
+void Segment::readExtras(QDataStream& stream, bool hasExtras) {
     if (!hasExtras) {
         return;
     }
     
     // Read D2X-XL extended attributes
-    reader.readUInt8();  // Special type (function)
-    reader.readUInt8();  // Properties
-    reader.readInt16();  // Value
-    reader.readInt16();  // S2 flags
-    reader.readInt32();  // Light color (RGBA)
-    reader.readInt32();  // Fade time
+    uint8_t specialType, props;
+    int16_t val, s2flags;
+    int32_t lightColor, fadeTime;
+    stream >> specialType >> props >> val >> s2flags >> lightColor >> fadeTime;
 }
 
-void Segment::writeExtras(class FileWriter& writer, bool hasExtras) const {
+void Segment::writeExtras(QDataStream& stream, bool hasExtras) const {
     if (!hasExtras) {
         return;
     }
     
     // Write D2X-XL extended attributes  
-    writer.writeUInt8(static_cast<uint8_t>(m_function));
-    writer.writeUInt8(m_properties);
-    writer.writeInt16(m_value);
-    writer.writeInt16(0);  // S2 flags (unused)
-    writer.writeInt32(0);  // Light color (RGBA) - default
-    writer.writeInt32(0);  // Fade time - default
+    stream << static_cast<uint8_t>(m_function)
+           << m_properties
+           << m_value
+           << static_cast<int16_t>(0)  // S2 flags (unused)
+           << static_cast<int32_t>(0)  // Light color (RGBA) - default
+           << static_cast<int32_t>(0); // Fade time - default
 }
 
 } // namespace dle

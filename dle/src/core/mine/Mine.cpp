@@ -1,12 +1,47 @@
 #include "Mine.h"
-#include "../io/FileReader.h"
-#include "../io/FileWriter.h"
-#include <QString>
-#include <QDebug>
-#include <QtTypes>
-#include <algorithm>
+#include <QDataStream>
+#include <QFile>
 
 namespace dle {
+
+// Helper functions for reading Descent binary format
+namespace {
+
+Vector readVector(QDataStream& stream) {
+    int32_t x, y, z;
+    stream >> x >> y >> z;
+    return Vector(x, y, z);
+}
+
+Matrix readMatrix(QDataStream& stream) {
+    Vector right = readVector(stream);
+    Vector up = readVector(stream);
+    Vector forward = readVector(stream);
+    return Matrix(right, up, forward);
+}
+
+UVLS readUVLS(QDataStream& stream) {
+    int32_t u, v;
+    uint16_t light;
+    stream >> u >> v >> light;
+    return UVLS(u, v, light);
+}
+
+void writeVector(QDataStream& stream, const Vector& v) {
+    stream << v.x << v.y << v.z;
+}
+
+void writeMatrix(QDataStream& stream, const Matrix& m) {
+    writeVector(stream, m.right);
+    writeVector(stream, m.up);
+    writeVector(stream, m.forward);
+}
+
+void writeUVLS(QDataStream& stream, const UVLS& uvls) {
+    stream << uvls.u << uvls.v << uvls.light;
+}
+
+} // anonymous namespace
 
 Mine::Mine()
     : m_fileType(FileType::RL2)
@@ -139,20 +174,24 @@ void Mine::createDefault() {
 }
 
 bool Mine::load(const std::string& filename) {
-    FileReader reader;
-    if (!reader.open(QString::fromStdString(filename))) {
+    QFile file(QString::fromStdString(filename));
+    if (!file.open(QIODevice::ReadOnly)) {
         return false;
     }
     
+    QDataStream stream(&file);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    
     // Read LVLP signature
     char fileSignature[4];
-    reader.readBytes(fileSignature, 4);
+    stream.readRawData(fileSignature, 4);
     if (fileSignature[0] != 'L' || fileSignature[1] != 'V' || fileSignature[2] != 'L' || fileSignature[3] != 'P') {
         return false;
     }
     
     // Read file version
-    int32_t fileVersion = reader.readInt32();
+    int32_t fileVersion;
+    stream >> fileVersion;
     
     // Determine file type based on version
     if (fileVersion == 1) {
@@ -166,30 +205,31 @@ bool Mine::load(const std::string& filename) {
     }
     
     // Read mine and game data offsets
-    int32_t mineDataOffset = reader.readInt32();
-    int32_t gameDataOffset = reader.readInt32();
+    int32_t mineDataOffset, gameDataOffset;
+    stream >> mineDataOffset >> gameDataOffset;
     
     // Skip palette name and D2-specific reactor info for now
     // (We'll implement these later)
     
     // Seek to mine data and load geometry
-    reader.seek(mineDataOffset);
+    file.seek(mineDataOffset);
     
     // Read header
-    uint8_t compiledVersion = reader.readUInt8();
+    uint8_t compiledVersion;
+    stream >> compiledVersion;
     if (compiledVersion != 0) {
         return false;  // Invalid file
     }
     
     // Read counts (new file format uses u16)
-    uint16_t vertexCount = reader.readUInt16();
-    uint16_t segmentCount = reader.readUInt16();
+    uint16_t vertexCount, segmentCount;
+    stream >> vertexCount >> segmentCount;
     
     // Read vertices
     m_vertices.clear();
     m_vertices.reserve(vertexCount);
     for (int i = 0; i < vertexCount; ++i) {
-        Vector pos = reader.readVector();
+        Vector pos = readVector(stream);
         m_vertices.push_back(Vertex(pos));
     }
     
@@ -198,21 +238,23 @@ bool Mine::load(const std::string& filename) {
     m_segments.reserve(segmentCount);
     for (int i = 0; i < segmentCount; ++i) {
         Segment segment;
-        segment.read(reader);
+        segment.read(stream);
         m_segments.push_back(segment);
     }
     
     // Seek to game data section
-    reader.seek(gameDataOffset);
+    file.seek(gameDataOffset);
     
     // Read game data signature (0x6705)
-    uint16_t signature = reader.readUInt16();
+    uint16_t signature;
+    stream >> signature;
     if (signature != 0x6705) {
         return false;  // Invalid game data signature
     }
     
     // Read game data version (different from LVLP file version)
-    int32_t gameVersion = reader.readInt32();
+    int32_t gameVersion;
+    stream >> gameVersion;
     // Note: gameVersion is save format version, not the same as m_levelVersion (D1/D2 distinction)
     
     // Read level name (if version >= 14)
@@ -220,7 +262,8 @@ bool Mine::load(const std::string& filename) {
         char nameBuffer[256] = {0};
         int nameIdx = 0;
         while (nameIdx < 255) {
-            char ch = reader.readInt8();
+            int8_t ch;
+            stream >> ch;
             if (ch == '\n') ch = 0;
             nameBuffer[nameIdx++] = ch;
             if (ch == 0) break;
@@ -229,61 +272,67 @@ bool Mine::load(const std::string& filename) {
     }
     
     // Read objects
-    int32_t objectCount = reader.readInt32();
+    int32_t objectCount;
+    stream >> objectCount;
     m_objects.clear();
     m_objects.reserve(std::min(objectCount, getMaxObjects()));
     for (int i = 0; i < objectCount && i < getMaxObjects(); ++i) {
         Object obj;
-        obj.read(reader, m_levelVersion);
+        obj.read(stream, m_levelVersion);
         m_objects.push_back(obj);
     }
     
     // Read walls
-    int32_t wallCount = reader.readInt32();
+    int32_t wallCount;
+    stream >> wallCount;
     m_walls.clear();
     m_walls.reserve(std::min(wallCount, getMaxWalls()));
     for (int i = 0; i < wallCount && i < getMaxWalls(); ++i) {
         Wall wall;
-        wall.read(reader, m_levelVersion);
+        wall.read(stream, m_levelVersion);
         m_walls.push_back(wall);
     }
     
     // Read triggers (wall triggers)
-    int32_t triggerCount = reader.readInt32();
+    int32_t triggerCount;
+    stream >> triggerCount;
     m_triggers.clear();
     m_triggers.reserve(std::min(triggerCount, getMaxTriggers()));
     for (int i = 0; i < triggerCount && i < getMaxTriggers(); ++i) {
         Trigger trigger;
-        trigger.read(reader, false, m_levelVersion);  // false = wall trigger
+        trigger.read(stream, false, m_levelVersion);  // false = wall trigger
         m_triggers.push_back(trigger);
     }
     
     // Read reactor trigger (if present)
-    int32_t reactorTriggerCount = reader.readInt32();
+    int32_t reactorTriggerCount;
+    stream >> reactorTriggerCount;
     if (reactorTriggerCount > 0) {
         ReactorTrigger reactorTrigger;
-        reactorTrigger.read(reader);
+        reactorTrigger.read(stream);
         m_reactorTrigger = reactorTrigger;
     }
     
     // Read robot makers (matcens)
-    int32_t robotMakerCount = reader.readInt32();
+    int32_t robotMakerCount;
+    stream >> robotMakerCount;
     m_robotMakers.clear();
     m_robotMakers.reserve(std::min(robotMakerCount, getMaxMatcens()));
     for (int i = 0; i < robotMakerCount && i < getMaxMatcens(); ++i) {
         Matcen matcen;
-        matcen.read(reader, m_levelVersion);
+        matcen.read(stream, m_levelVersion);
         m_robotMakers.push_back(matcen);
     }
     
     // Read equipment makers (D2 only)
     if (m_levelVersion >= LEVEL_VERSION_D2) {
-        int32_t equipmentMakerCount = reader.readInt32();
+        int32_t equipmentMakerCount;
+        stream >> equipmentMakerCount;
         m_equipmentMakers.clear();
         m_equipmentMakers.reserve(std::min(equipmentMakerCount, getMaxMatcens()));
         for (int i = 0; i < equipmentMakerCount && i < getMaxMatcens(); ++i) {
             Matcen matcen;
-            matcen.read(reader, m_levelVersion);
+            matcen.read(stream, m_levelVersion);
             m_equipmentMakers.push_back(matcen);
         }
         
@@ -296,128 +345,131 @@ bool Mine::load(const std::string& filename) {
     
     m_changesMade = false;
     
-    return !reader.hasError();
+    return stream.status() == QDataStream::Ok;
 }
 
 bool Mine::save(const std::string& filename) {
-    FileWriter writer;
-    if (!writer.open(QString::fromStdString(filename))) {
+    QFile file(QString::fromStdString(filename));
+    if (!file.open(QIODevice::WriteOnly)) {
         return false;
     }
     
+    QDataStream stream(&file);
+    stream.setByteOrder(QDataStream::LittleEndian);
+    
     // Write LVLP signature
-    writer.writeInt8('L');
-    writer.writeInt8('V');
-    writer.writeInt8('L');
-    writer.writeInt8('P');
+    stream << static_cast<int8_t>('L');
+    stream << static_cast<int8_t>('V');
+    stream << static_cast<int8_t>('L');
+    stream << static_cast<int8_t>('P');
     
     // Write file version
     int32_t fileVersion = (m_fileType == FileType::RDL) ? 1 : m_levelVersion;
-    writer.writeInt32(fileVersion);
+    stream << fileVersion;
     
     // Reserve space for offsets (we'll come back and write these)
-    qint64 mineOffsetPos = writer.pos();
-    writer.writeInt32(0);  // Placeholder for mine data offset
-    writer.writeInt32(0);  // Placeholder for game data offset
+    qint64 mineOffsetPos = file.pos();
+    stream << static_cast<int32_t>(0);  // Placeholder for mine data offset
+    stream << static_cast<int32_t>(0);  // Placeholder for game data offset
     
     // For D1 files, write 4 padding bytes (observed in original files)
     if (m_fileType == FileType::RDL) {
-        writer.writeInt32(0);
+        stream << static_cast<int32_t>(0);
     }
     
     // Skip D2-specific data for now (palette, reactor, secret segment)
     // In a full implementation, we'd write these here
     
     // Remember where mine data starts
-    qint64 mineDataOffset = writer.pos();
+    qint64 mineDataOffset = file.pos();
     
     // Write mine geometry
     // Write header
-    writer.writeUInt8(0);  // Compiled version
-    writer.writeUInt16(static_cast<uint16_t>(m_vertices.size()));
-    writer.writeUInt16(static_cast<uint16_t>(m_segments.size()));
+    stream << static_cast<uint8_t>(0);  // Compiled version
+    stream << static_cast<uint16_t>(m_vertices.size());
+    stream << static_cast<uint16_t>(m_segments.size());
     
     // Write vertices
     for (const auto& vertex : m_vertices) {
-        writer.writeVector(vertex.position);
+        writeVector(stream, vertex.position);
     }
     
     // Write segments
     for (const auto& segment : m_segments) {
-        segment.write(writer);
+        segment.write(stream);
     }
     
     // Remember where game data starts
-    qint64 gameDataOffset = writer.pos();
+    qint64 gameDataOffset = file.pos();
     
     // Write game data signature (0x6705)
-    writer.writeUInt16(0x6705);
+    stream << static_cast<uint16_t>(0x6705);
     
     // Write level version
-    writer.writeInt32(m_levelVersion);
+    stream << m_levelVersion;
     
     // Write level name (if version >= 14)
     if (m_levelVersion >= 14) {
         const char* name = m_levelName.empty() ? "Untitled" : m_levelName.c_str();
         for (const char* p = name; *p != 0; ++p) {
-            writer.writeInt8(*p);
+            stream << static_cast<int8_t>(*p);
         }
-        writer.writeInt8(0);  // Null terminator
+        stream << static_cast<int8_t>(0);  // Null terminator
     }
     
     // Write objects
-    writer.writeInt32(static_cast<int32_t>(m_objects.size()));
+    stream << static_cast<int32_t>(m_objects.size());
     for (const auto& obj : m_objects) {
-        obj.write(writer, m_levelVersion);
+        obj.write(stream, m_levelVersion);
     }
     
     // Write walls
-    writer.writeInt32(static_cast<int32_t>(m_walls.size()));
+    stream << static_cast<int32_t>(m_walls.size());
     for (const auto& wall : m_walls) {
-        wall.write(writer, m_levelVersion);
+        wall.write(stream, m_levelVersion);
     }
     
     // Write triggers
-    writer.writeInt32(static_cast<int32_t>(m_triggers.size()));
+    stream << static_cast<int32_t>(m_triggers.size());
     for (const auto& trigger : m_triggers) {
-        trigger.write(writer, false, m_levelVersion);  // false = wall trigger
+        trigger.write(stream, false, m_levelVersion);  // false = wall trigger
     }
     
     // Write reactor trigger
     if (m_reactorTrigger.has_value()) {
-        writer.writeInt32(1);  // Count = 1
-        m_reactorTrigger->write(writer);
+        stream << static_cast<int32_t>(1);  // Count = 1
+        m_reactorTrigger->write(stream);
     } else {
-        writer.writeInt32(0);  // Count = 0
+        stream << static_cast<int32_t>(0);  // Count = 0
     }
     
     // Write robot makers
-    writer.writeInt32(static_cast<int32_t>(m_robotMakers.size()));
+    stream << static_cast<int32_t>(m_robotMakers.size());
     for (const auto& matcen : m_robotMakers) {
-        matcen.write(writer, m_levelVersion);
+        matcen.write(stream, m_levelVersion);
     }
     
     // Write equipment makers (D2 only)
     if (m_levelVersion >= LEVEL_VERSION_D2) {
-        writer.writeInt32(static_cast<int32_t>(m_equipmentMakers.size()));
+        stream << static_cast<int32_t>(m_equipmentMakers.size());
         for (const auto& matcen : m_equipmentMakers) {
-            matcen.write(writer, m_levelVersion);
+            matcen.write(stream, m_levelVersion);
         }
         
         // TODO: Write light deltas (D2 only)
     }
     
     // Now go back and write the actual offsets
-    qint64 endPos = writer.pos();
-    writer.seek(mineOffsetPos);
-    writer.writeInt32(static_cast<int32_t>(mineDataOffset));
-    writer.writeInt32(static_cast<int32_t>(gameDataOffset));
-    writer.seek(endPos);
+    qint64 endPos = file.pos();
+    file.seek(mineOffsetPos);
+    stream << static_cast<int32_t>(mineDataOffset);
+    stream << static_cast<int32_t>(gameDataOffset);
+    file.seek(endPos);
     
-    writer.flush();
+    file.flush();
     m_changesMade = false;
     
-    return !writer.hasError();
+    return stream.status() == QDataStream::Ok;
 }
 
 } // namespace dle

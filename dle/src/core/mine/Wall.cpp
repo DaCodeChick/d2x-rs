@@ -1,6 +1,5 @@
 #include "Wall.h"
-#include "../io/FileReader.h"
-#include "../io/FileWriter.h"
+#include <QDataStream>
 
 namespace dle {
 
@@ -42,80 +41,85 @@ bool Wall::isVisible() const {
            !(m_type == WallType::Illusion && hasFlag(WallFlagIllusionOff));
 }
 
-void Wall::read(FileReader& reader, int levelVersion) {
+void Wall::read(QDataStream& stream, int levelVersion) {
     // Read wall data based on level version
     // D1 and D2 have slightly different formats
     
+    uint8_t type_val;
+    uint8_t state_val;
+    
     // Read type
-    m_type = static_cast<WallType>(reader.readUInt8());
+    stream >> type_val;
+    m_type = static_cast<WallType>(type_val);
     
     // Read flags
-    m_flags = reader.readUInt16();
+    stream >> m_flags;
     
     // Read hit points (as fix)
-    m_hitPoints = reader.readFix();
+    stream >> m_hitPoints;
     
     // Read linked wall
-    m_linkedWall = reader.readInt16();
+    stream >> m_linkedWall;
     
     // Read state
-    m_state = static_cast<WallState>(reader.readUInt8());
+    stream >> state_val;
+    m_state = static_cast<WallState>(state_val);
     
     // Read trigger
-    m_trigger = reader.readUInt8();
+    stream >> m_trigger;
     
     // Read clip number
-    m_clipNum = reader.readInt8();
+    stream >> m_clipNum;
     
     // Read keys
-    m_keys = reader.readUInt8();
+    stream >> m_keys;
     
     // D2 specific fields
     if (levelVersion > 1) {
-        m_controllingTrigger = reader.readInt8();
-        m_cloakValue = reader.readInt8();
+        stream >> m_controllingTrigger;
+        stream >> m_cloakValue;
     } else {
         // D1: These fields were a "short pad"
-        reader.readInt16();  // Skip padding
+        stream.skipRawData(2);  // Skip padding
         m_controllingTrigger = -1;
         m_cloakValue = 0;
     }
 }
 
-void Wall::write(FileWriter& writer, int levelVersion) const {
+void Wall::write(QDataStream& stream, int levelVersion) const {
     // Write wall data based on level version
     
     // Write type
-    writer.writeUInt8(static_cast<uint8_t>(m_type));
+    stream << static_cast<uint8_t>(m_type);
     
     // Write flags
-    writer.writeUInt16(m_flags);
+    stream << m_flags;
     
     // Write hit points (as fix)
-    writer.writeFix(m_hitPoints);
+    stream << m_hitPoints;
     
     // Write linked wall
-    writer.writeInt16(m_linkedWall);
+    stream << m_linkedWall;
     
     // Write state
-    writer.writeUInt8(static_cast<uint8_t>(m_state));
+    stream << static_cast<uint8_t>(m_state);
     
     // Write trigger
-    writer.writeUInt8(m_trigger);
+    stream << m_trigger;
     
     // Write clip number
-    writer.writeInt8(m_clipNum);
+    stream << m_clipNum;
     
     // Write keys
-    writer.writeUInt8(m_keys);
+    stream << m_keys;
     
     // D2 specific fields
     if (levelVersion > 1) {
-        writer.writeInt8(m_controllingTrigger);
-        writer.writeInt8(m_cloakValue);
+        stream << m_controllingTrigger;
+        stream << m_cloakValue;
     } else {
         // D1: Write padding
-        writer.writeInt16(0);
+        stream << static_cast<int16_t>(0);
     }
 }
 

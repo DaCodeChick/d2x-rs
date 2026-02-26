@@ -1,9 +1,22 @@
 #include "Side.h"
-#include "../io/FileReader.h"
-#include "../io/FileWriter.h"
+#include <QDataStream>
 #include <cstring>
 
 namespace dle {
+
+// Helper functions for reading/writing Descent types
+namespace {
+    UVLS readUVLS(QDataStream& stream) {
+        int32_t u, v;
+        uint16_t light;
+        stream >> u >> v >> light;
+        return UVLS(u, v, light);
+    }
+    
+    void writeUVLS(QDataStream& stream, const UVLS& uvls) {
+        stream << uvls.u << uvls.v << uvls.light;
+    }
+}
 
 Side::Side()
     : m_parentSegmentId(-1)
@@ -98,17 +111,19 @@ bool Side::isVisible() const {
     return !hasChild() || hasWall();
 }
 
-void Side::read(class FileReader& reader, bool textured) {
+void Side::read(QDataStream& stream, bool textured) {
     // Read side data from file
-    m_wallId = reader.readUInt8();  // Wall number (255 = no wall)
-    m_baseTexture = reader.readInt16();
+    uint8_t wallNum;
+    stream >> wallNum;
+    m_wallId = wallNum;  // Wall number (255 = no wall)
+    stream >> m_baseTexture;
     
     if (textured) {
-        m_overlayTexture = reader.readInt16();
+        stream >> m_overlayTexture;
         
         // Read UVLs (4 per side)
         for (int i = 0; i < 4; ++i) {
-            m_uvls[i] = reader.readUVLS();
+            m_uvls[i] = readUVLS(stream);
         }
     } else {
         m_overlayTexture = 0;
@@ -118,17 +133,17 @@ void Side::read(class FileReader& reader, bool textured) {
     }
 }
 
-void Side::write(class FileWriter& writer, bool textured) const {
+void Side::write(QDataStream& stream, bool textured) const {
     // Write side data to file
-    writer.writeUInt8(m_wallId == 0xFFFF ? 255 : static_cast<uint8_t>(m_wallId));
-    writer.writeInt16(m_baseTexture);
+    uint8_t wallNum = (m_wallId == 0xFFFF ? 255 : static_cast<uint8_t>(m_wallId));
+    stream << wallNum << m_baseTexture;
     
     if (textured) {
-        writer.writeInt16(m_overlayTexture);
+        stream << m_overlayTexture;
         
         // Write UVLs (4 per side)
         for (int i = 0; i < 4; ++i) {
-            writer.writeUVLS(m_uvls[i]);
+            writeUVLS(stream, m_uvls[i]);
         }
     }
 }

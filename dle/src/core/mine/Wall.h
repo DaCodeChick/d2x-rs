@@ -4,11 +4,9 @@
 #include "../types/Types.h"
 #include <cstdint>
 
-namespace dle {
+class QDataStream;  // Qt forward declaration
 
-// Forward declaration
-class FileReader;
-class FileWriter;
+namespace dle {
 
 /**
  * @brief Wall types
@@ -135,8 +133,8 @@ public:
     bool isD2X() const { return m_type >= WallType::Colored; }
     
     // File I/O
-    void read(FileReader& reader, int levelVersion);
-    void write(FileWriter& writer, int levelVersion) const;
+    void read(QDataStream& stream, int levelVersion);
+    void write(QDataStream& stream, int levelVersion) const;
 
 private:
     WallType m_type;                  // Wall type

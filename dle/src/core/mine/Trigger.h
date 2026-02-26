@@ -5,11 +5,9 @@
 #include <cstdint>
 #include <array>
 
-namespace dle {
+class QDataStream;  // Qt forward declaration
 
-// Forward declaration
-class FileReader;
-class FileWriter;
+namespace dle {
 
 /**
  * @brief Maximum number of trigger targets
@@ -144,8 +142,8 @@ public:
     bool isD2X() const { return m_type >= TriggerType::Teleport; }
     
     // File I/O
-    void read(FileReader& reader, bool isObjectTrigger, int levelVersion);
-    void write(FileWriter& writer, bool isObjectTrigger, int levelVersion) const;
+    void read(QDataStream& stream, bool isObjectTrigger, int levelVersion);
+    void write(QDataStream& stream, bool isObjectTrigger, int levelVersion) const;
 
 private:
     TriggerType m_type;                                      // Trigger type
@@ -192,8 +190,8 @@ public:
     void clearTargets();
     
     // File I/O
-    void read(FileReader& reader);
-    void write(FileWriter& writer) const;
+    void read(QDataStream& stream);
+    void write(QDataStream& stream) const;
 
 private:
     int8_t m_targetCount;                                    // Number of targets
