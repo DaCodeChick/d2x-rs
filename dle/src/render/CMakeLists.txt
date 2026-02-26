@@ -10,14 +10,10 @@ target_include_directories(dle_render PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
-# Add Qt private headers for RHI access
-target_include_directories(dle_render PRIVATE
-    /usr/include/qt6/QtGui/6.10.2/QtGui
-)
-
 target_link_libraries(dle_render PUBLIC
     Qt6::Core
     Qt6::Widgets
     Qt6::Gui
+    Qt6::GuiPrivate
     dle_core
 )
