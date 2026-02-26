@@ -10,27 +10,27 @@ namespace dle {
 using fix = int32_t;
 
 // Fixed-point conversion functions
-inline constexpr double fixToDouble(fix x) {
+constexpr double fixToDouble(fix x) {
     return static_cast<double>(x) / 65536.0;
 }
 
-inline constexpr fix doubleToFix(double d) {
+constexpr fix doubleToFix(double d) {
     return static_cast<fix>(std::round(d * 65536.0));
 }
 
-inline constexpr int fixToInt(fix x) {
+constexpr int fixToInt(fix x) {
     return x / 65536;
 }
 
-inline constexpr fix intToFix(int i) {
+constexpr fix intToFix(int i) {
     return static_cast<fix>(i) * 65536;
 }
 
-inline constexpr fix fixMul(fix a, fix b) {
+constexpr fix fixMul(fix a, fix b) {
     return static_cast<fix>((static_cast<int64_t>(a) * b) / 65536);
 }
 
-inline constexpr fix fixDiv(fix a, fix b) {
+constexpr fix fixDiv(fix a, fix b) {
     return static_cast<fix>((static_cast<int64_t>(a) * 65536) / b);
 }
 
@@ -137,12 +137,12 @@ struct Vec3 {
 
 // Specialization for fix type (uses fixMul for multiplication)
 template<>
-inline constexpr Vec3<fix> Vec3<fix>::operator*(fix scalar) const {
+constexpr Vec3<fix> Vec3<fix>::operator*(fix scalar) const {
     return Vec3<fix>(fixMul(x, scalar), fixMul(y, scalar), fixMul(z, scalar));
 }
 
 template<>
-inline constexpr Vec3<fix>& Vec3<fix>::operator*=(fix scalar) {
+constexpr Vec3<fix>& Vec3<fix>::operator*=(fix scalar) {
     x = fixMul(x, scalar);
     y = fixMul(y, scalar);
     z = fixMul(z, scalar);
@@ -191,14 +191,14 @@ struct Mat3 {
 
 // Specialization for fix type - identity uses intToFix
 template<>
-inline constexpr Mat3<fix>::Mat3()
+constexpr Mat3<fix>::Mat3()
     : right(intToFix(1), 0, 0)
     , up(0, intToFix(1), 0)
     , forward(0, 0, intToFix(1)) {}
 
 // Specialization for double type - identity uses 1.0
 template<>
-inline constexpr Mat3<double>::Mat3()
+constexpr Mat3<double>::Mat3()
     : right(1.0, 0.0, 0.0)
     , up(0.0, 1.0, 0.0)
     , forward(0.0, 0.0, 1.0) {}
