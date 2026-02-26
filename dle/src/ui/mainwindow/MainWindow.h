@@ -34,8 +34,8 @@ private slots:
     // File menu
     void onFileNew();
     void onFileOpen();
-    void onFileSave();
-    void onFileSaveAs();
+    bool onFileSave();
+    bool onFileSaveAs();
     void onFileExit();
     
     // Edit menu

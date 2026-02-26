@@ -12,6 +12,10 @@ add_library(dle_core STATIC
     mine/Segment.cpp
     mine/Side.h
     mine/Side.cpp
+    mine/Wall.h
+    mine/Wall.cpp
+    mine/Trigger.h
+    mine/Trigger.cpp
     
     # File I/O
     io/FileReader.h
