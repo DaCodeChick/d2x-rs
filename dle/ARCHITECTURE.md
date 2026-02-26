@@ -8,9 +8,29 @@ A modern Qt 6 + C++ rewrite of the Descent Level Editor (DLE-XP), providing a cr
 
 - **UI Framework**: Qt 6.10+ (Widgets + QML)
 - **Language**: C++23
-- **Graphics**: Qt 3D / OpenGL 4.5+
+- **Graphics**: Qt RHI (Render Hardware Interface)
+  - Metal on macOS/iOS
+  - Vulkan on Linux/Android
+  - Direct3D 11/12 on Windows
+  - OpenGL ES fallback (deprecated but available)
 - **Build System**: CMake
 - **Version Control**: Git
+
+### Graphics Architecture Rationale
+
+We use **Qt RHI** (Qt 6's Render Hardware Interface) instead of deprecated OpenGL:
+
+- **Cross-platform**: Automatically uses the optimal API per platform (Metal/Vulkan/D3D)
+- **Future-proof**: Qt's official path forward, maintained long-term
+- **Direct control**: Low-level access for Descent's unique rendering needs
+- **Modern features**: Compute shaders, efficient buffer management, multiple render targets
+- **Qt integration**: Native to Qt 6, used internally by Qt Quick
+
+RHI gives us the flexibility to handle Descent's specific requirements:
+- Fixed-point coordinate conversion (16.16 format)
+- Portal-based rendering (segment connectivity through sides)
+- Custom texture mapping (UV per vertex, palette-based textures)
+- Special effects (transparency, animated textures, flickering lights)
 
 ## Core Architecture
 
@@ -198,11 +218,13 @@ A modern Qt 6 + C++ rewrite of the Descent Level Editor (DLE-XP), providing a cr
 
 #### 4. **Views** (`ui/views/`)
 
-**3D View** (Qt 3D Widget)
-- Free camera navigation
+**3D View** (Qt RHI Widget)
+- Free camera navigation (WASD + mouse look)
 - Selection (click, box, lasso)
 - Gizmos (move, rotate, scale)
-- Realtime rendering
+- Hardware-accelerated rendering via RHI
+- Portal-based rendering for segment connectivity
+- Custom shaders for Descent-specific effects
 
 **Texture View**
 - Texture browser
