@@ -1,4 +1,7 @@
 #include "Mine.h"
+#include "../io/FileReader.h"
+#include "../io/FileWriter.h"
+#include <QString>
 #include <algorithm>
 
 namespace dle {
@@ -128,15 +131,85 @@ void Mine::createDefault() {
 }
 
 bool Mine::load(const std::string& filename) {
-    // TODO: Implement file loading
-    // This will be implemented when we create the file I/O classes
-    return false;
+    FileReader reader;
+    if (!reader.open(QString::fromStdString(filename))) {
+        return false;
+    }
+    
+    // Detect file type from extension
+    QString qfilename = QString::fromStdString(filename);
+    if (qfilename.endsWith(".rdl", Qt::CaseInsensitive)) {
+        m_fileType = FileType::RDL;
+        m_levelVersion = LEVEL_VERSION_D1;
+    } else if (qfilename.endsWith(".rl2", Qt::CaseInsensitive)) {
+        m_fileType = FileType::RL2;
+        m_levelVersion = LEVEL_VERSION_D2;
+    } else {
+        return false;  // Unknown file type
+    }
+    
+    // Read header
+    uint8_t compiledVersion = reader.readUInt8();
+    if (compiledVersion != 0) {
+        return false;  // Invalid file
+    }
+    
+    // Read counts (new file format uses u16)
+    uint16_t vertexCount = reader.readUInt16();
+    uint16_t segmentCount = reader.readUInt16();
+    
+    // Read vertices
+    m_vertices.clear();
+    m_vertices.reserve(vertexCount);
+    for (int i = 0; i < vertexCount; ++i) {
+        Vector pos = reader.readVector();
+        m_vertices.push_back(Vertex(pos));
+    }
+    
+    // Read segments
+    m_segments.clear();
+    m_segments.reserve(segmentCount);
+    for (int i = 0; i < segmentCount; ++i) {
+        Segment segment;
+        segment.read(reader);
+        m_segments.push_back(segment);
+    }
+    
+    // TODO: Read walls, triggers, objects, etc.
+    
+    m_levelName = QString::fromStdString(filename).section('/', -1).section('.', 0, 0).toStdString();
+    m_changesMade = false;
+    
+    return !reader.hasError();
 }
 
 bool Mine::save(const std::string& filename) {
-    // TODO: Implement file saving
-    // This will be implemented when we create the file I/O classes
-    return false;
+    FileWriter writer;
+    if (!writer.open(QString::fromStdString(filename))) {
+        return false;
+    }
+    
+    // Write header
+    writer.writeUInt8(0);  // Compiled version
+    writer.writeUInt16(static_cast<uint16_t>(m_vertices.size()));
+    writer.writeUInt16(static_cast<uint16_t>(m_segments.size()));
+    
+    // Write vertices
+    for (const auto& vertex : m_vertices) {
+        writer.writeVector(vertex.position);
+    }
+    
+    // Write segments
+    for (const auto& segment : m_segments) {
+        segment.write(writer);
+    }
+    
+    // TODO: Write walls, triggers, objects, etc.
+    
+    writer.flush();
+    m_changesMade = false;
+    
+    return !writer.hasError();
 }
 
 } // namespace dle

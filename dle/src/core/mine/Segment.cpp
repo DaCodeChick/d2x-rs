@@ -1,4 +1,6 @@
 #include "Segment.h"
+#include "../io/FileReader.h"
+#include "../io/FileWriter.h"
 #include <algorithm>
 #include <cstring>
 
@@ -168,23 +170,80 @@ int Segment::findCommonSide(int sideIndex, const Segment& other, int& outOtherSi
 }
 
 void Segment::read(class FileReader& reader) {
-    // TODO: Implement file reading
-    // This will be implemented when we create the FileReader class
+    // Read segment data structure (basic D1/D2 format)
+    // Read sides first (6 sides)
+    for (int i = 0; i < NUM_SIDES; ++i) {
+        m_sides[i].read(reader, true);
+    }
+    
+    // Read children (6 child indices)
+    for (int i = 0; i < NUM_SIDES; ++i) {
+        int16_t childId = reader.readInt16();
+        setChildId(i, childId);
+    }
+    
+    // Read vertex IDs (8 vertices)
+    for (int i = 0; i < NUM_VERTICES_PER_SEGMENT; ++i) {
+        m_vertexIds[i] = reader.readUInt16();
+    }
+    
+    // Read special attributes
+    m_staticLight = reader.readInt16();  // Static light value
+    
+    // Skip wall bitmap mask (not used in modern editor)
+    reader.skip(2);
 }
 
 void Segment::write(class FileWriter& writer) const {
-    // TODO: Implement file writing
-    // This will be implemented when we create the FileWriter class
+    // Write segment data structure (basic D1/D2 format)
+    // Write sides first (6 sides)
+    for (int i = 0; i < NUM_SIDES; ++i) {
+        m_sides[i].write(writer, true);
+    }
+    
+    // Write children (6 child indices)
+    for (int i = 0; i < NUM_SIDES; ++i) {
+        writer.writeInt16(m_sides[i].getChild());
+    }
+    
+    // Write vertex IDs (8 vertices)
+    for (int i = 0; i < NUM_VERTICES_PER_SEGMENT; ++i) {
+        writer.writeUInt16(m_vertexIds[i]);
+    }
+    
+    // Write special attributes
+    writer.writeInt16(m_staticLight);
+    
+    // Write wall bitmap mask (set to 0)
+    writer.writeUInt16(0);
 }
 
 void Segment::readExtras(class FileReader& reader, bool hasExtras) {
-    // TODO: Implement extras reading
-    // This will be implemented when we create the FileReader class
+    if (!hasExtras) {
+        return;
+    }
+    
+    // Read D2X-XL extended attributes
+    reader.readUInt8();  // Special type (function)
+    reader.readUInt8();  // Properties
+    reader.readInt16();  // Value
+    reader.readInt16();  // S2 flags
+    reader.readInt32();  // Light color (RGBA)
+    reader.readInt32();  // Fade time
 }
 
 void Segment::writeExtras(class FileWriter& writer, bool hasExtras) const {
-    // TODO: Implement extras writing
-    // This will be implemented when we create the FileWriter class
+    if (!hasExtras) {
+        return;
+    }
+    
+    // Write D2X-XL extended attributes  
+    writer.writeUInt8(static_cast<uint8_t>(m_function));
+    writer.writeUInt8(m_properties);
+    writer.writeInt16(m_value);
+    writer.writeInt16(0);  // S2 flags (unused)
+    writer.writeInt32(0);  // Light color (RGBA) - default
+    writer.writeInt32(0);  // Fade time - default
 }
 
 } // namespace dle

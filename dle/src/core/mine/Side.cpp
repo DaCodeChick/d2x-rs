@@ -1,4 +1,6 @@
 #include "Side.h"
+#include "../io/FileReader.h"
+#include "../io/FileWriter.h"
 #include <cstring>
 
 namespace dle {
@@ -97,13 +99,38 @@ bool Side::isVisible() const {
 }
 
 void Side::read(class FileReader& reader, bool textured) {
-    // TODO: Implement file reading
-    // This will be implemented when we create the FileReader class
+    // Read side data from file
+    m_wallId = reader.readUInt8();  // Wall number (255 = no wall)
+    m_baseTexture = reader.readInt16();
+    
+    if (textured) {
+        m_overlayTexture = reader.readInt16();
+        
+        // Read UVLs (4 per side)
+        for (int i = 0; i < 4; ++i) {
+            m_uvls[i] = reader.readUVLS();
+        }
+    } else {
+        m_overlayTexture = 0;
+        for (int i = 0; i < 4; ++i) {
+            m_uvls[i] = DEFAULT_UVLS[i];
+        }
+    }
 }
 
 void Side::write(class FileWriter& writer, bool textured) const {
-    // TODO: Implement file writing
-    // This will be implemented when we create the FileWriter class
+    // Write side data to file
+    writer.writeUInt8(m_wallId == 0xFFFF ? 255 : static_cast<uint8_t>(m_wallId));
+    writer.writeInt16(m_baseTexture);
+    
+    if (textured) {
+        writer.writeInt16(m_overlayTexture);
+        
+        // Write UVLs (4 per side)
+        for (int i = 0; i < 4; ++i) {
+            writer.writeUVLS(m_uvls[i]);
+        }
+    }
 }
 
 } // namespace dle
