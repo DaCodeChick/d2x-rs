@@ -270,19 +270,70 @@ impl PlrProfile {
 
     /// Parse a binary .PLR file
     ///
-    /// **Note**: This is a placeholder implementation. Full binary parsing
-    /// is not yet supported.
+    /// Parses the PLR file header (signature, version, callsign) and
+    /// stores remaining data for future parsing.
+    ///
+    /// # Binary Format
+    ///
+    /// ```text
+    /// Offset  Size  Description
+    /// ------  ----  -----------
+    /// 0x00    4     File signature "PLYR"
+    /// 0x04    4     File version (little-endian)
+    /// 0x08    8     Player callsign (null-padded)
+    /// 0x10    ?     Player data (version-dependent)
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be parsed.
-    pub fn parse(_data: &[u8]) -> Result<Self> {
-        // TODO: Implement binary PLR parsing
-        // This requires detailed format specification from original source
-        Err(AssetError::UnsupportedFormat(
-            "Binary .PLR format parsing not yet implemented. Use D2X-XL .PLX format instead."
-                .to_string(),
-        ))
+    /// Returns an error if:
+    /// - File is too short
+    /// - Signature is invalid
+    /// - Version is unsupported
+    pub fn parse(data: &[u8]) -> Result<Self> {
+        use crate::io::ReadExt;
+        use crate::validation::{validate_min, validate_signature};
+        use std::io::Cursor;
+
+        // Minimum size: signature (4) + version (4) + callsign (8)
+        validate_min(data.len(), 16, "PLR file size")?;
+
+        let mut cursor = Cursor::new(data);
+
+        // Read and validate signature "PLYR"
+        let signature = cursor.read_u32_le()?;
+        const PLR_SIGNATURE: u32 = u32::from_le_bytes([b'P', b'L', b'Y', b'R']);
+        validate_signature(signature, PLR_SIGNATURE, "PLR file")?;
+
+        // Read version
+        let version = cursor.read_u32_le()?;
+
+        // Validate version
+        match version {
+            COMPATIBLE_PLAYER_FILE_VERSION
+            | D2W95_PLAYER_FILE_VERSION
+            | D2XW32_PLAYER_FILE_VERSION => {}
+            _ => {
+                return Err(AssetError::InvalidFormat(format!(
+                    "Unsupported PLR version: {}. Expected 17, 24, or 45",
+                    version
+                )))
+            }
+        }
+
+        // Read callsign (8 bytes, null-terminated)
+        let callsign_bytes = cursor.read_bytes(CALLSIGN_LEN)?;
+        let callsign = crate::io::read_null_padded_string(&callsign_bytes);
+
+        // Store remaining data for future parsing
+        let position = cursor.position() as usize;
+        let remaining_data = data[position..].to_vec();
+
+        Ok(Self {
+            callsign,
+            version,
+            data: remaining_data,
+        })
     }
 
     /// Get the player's callsign
@@ -474,14 +525,46 @@ mod tests {
     }
 
     #[test]
-    fn test_plr_not_implemented() {
-        let data = b"PLYR\x11\x00\x00\x00";
+    fn test_plr_parse_valid() {
+        // Create valid PLR file: signature + version + callsign
+        let mut data = Vec::new();
+        data.extend_from_slice(b"PLYR"); // Signature
+        data.extend_from_slice(&17u32.to_le_bytes()); // Version 17
+        data.extend_from_slice(b"PLAYER\0\0"); // Callsign (8 bytes, null-padded)
+
+        let result = PlrProfile::parse(&data);
+        assert!(result.is_ok());
+
+        let profile = result.unwrap();
+        assert_eq!(profile.callsign(), "PLAYER");
+        assert_eq!(profile.version(), 17);
+    }
+
+    #[test]
+    fn test_plr_parse_invalid_signature() {
+        let data = b"BLAH\x11\x00\x00\x00PLAYER\0\0";
         let result = PlrProfile::parse(data);
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            AssetError::UnsupportedFormat(_)
-        ));
+        assert!(matches!(result.unwrap_err(), AssetError::InvalidFormat(_)));
+    }
+
+    #[test]
+    fn test_plr_parse_invalid_version() {
+        let mut data = Vec::new();
+        data.extend_from_slice(b"PLYR"); // Signature
+        data.extend_from_slice(&999u32.to_le_bytes()); // Invalid version
+        data.extend_from_slice(b"PLAYER\0\0"); // Callsign
+
+        let result = PlrProfile::parse(&data);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AssetError::InvalidFormat(_)));
+    }
+
+    #[test]
+    fn test_plr_parse_too_short() {
+        let data = b"PLYR\x11\x00\x00\x00"; // Missing callsign
+        let result = PlrProfile::parse(data);
+        assert!(result.is_err());
     }
 
     #[test]
