@@ -18,6 +18,8 @@ add_library(dle_core STATIC
     mine/Trigger.cpp
     mine/Object.h
     mine/Object.cpp
+    mine/Matcen.h
+    mine/Matcen.cpp
     
     # File I/O
     io/FileReader.h

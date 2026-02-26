@@ -196,6 +196,8 @@ constexpr int MAX_OBJECTS_D2X = 5000;
 constexpr int MAX_TRIGGERS = 100;
 constexpr int MAX_TRIGGERS_D2X = 1000;
 
+constexpr int MAX_MATCENS = 20;  // Maximum robot/equipment generators
+
 // Segment constants
 constexpr int NUM_SIDES = 6;
 constexpr int NUM_VERTICES_PER_SEGMENT = 8;

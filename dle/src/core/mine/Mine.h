@@ -6,17 +6,19 @@
 #include "Wall.h"
 #include "Trigger.h"
 #include "Object.h"
+#include "Matcen.h"
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
 
 namespace dle {
 
 // Forward declarations
 class Wall;
 class Trigger;
+class ReactorTrigger;
 class Object;
-class Reactor;
 class Matcen;
 
 /**
@@ -147,6 +149,38 @@ public:
         return static_cast<int>(m_objects.size()) - 1;
     }
     
+    // Matcens (robot/equipment generators)
+    std::vector<Matcen>& getRobotMakers() { return m_robotMakers; }
+    const std::vector<Matcen>& getRobotMakers() const { return m_robotMakers; }
+    int getRobotMakerCount() const { return static_cast<int>(m_robotMakers.size()); }
+    
+    Matcen& getRobotMaker(int index) { return m_robotMakers[index]; }
+    const Matcen& getRobotMaker(int index) const { return m_robotMakers[index]; }
+    
+    int addRobotMaker(const Matcen& matcen) {
+        m_robotMakers.push_back(matcen);
+        return static_cast<int>(m_robotMakers.size()) - 1;
+    }
+    
+    std::vector<Matcen>& getEquipmentMakers() { return m_equipmentMakers; }
+    const std::vector<Matcen>& getEquipmentMakers() const { return m_equipmentMakers; }
+    int getEquipmentMakerCount() const { return static_cast<int>(m_equipmentMakers.size()); }
+    
+    Matcen& getEquipmentMaker(int index) { return m_equipmentMakers[index]; }
+    const Matcen& getEquipmentMaker(int index) const { return m_equipmentMakers[index]; }
+    
+    int addEquipmentMaker(const Matcen& matcen) {
+        m_equipmentMakers.push_back(matcen);
+        return static_cast<int>(m_equipmentMakers.size()) - 1;
+    }
+    
+    // Reactor trigger (activated when reactor is destroyed)
+    bool hasReactorTrigger() const { return m_reactorTrigger.has_value(); }
+    const ReactorTrigger& getReactorTrigger() const { return *m_reactorTrigger; }
+    ReactorTrigger& getReactorTrigger() { return *m_reactorTrigger; }
+    void setReactorTrigger(const ReactorTrigger& trigger) { m_reactorTrigger = trigger; }
+    void clearReactorTrigger() { m_reactorTrigger.reset(); }
+    
     // Limits based on file type
     int getMaxSegments() const {
         if (isD2X()) return MAX_SEGMENTS_D2X;
@@ -169,6 +203,10 @@ public:
     
     int getMaxTriggers() const {
         return isD2X() ? MAX_TRIGGERS_D2X : MAX_TRIGGERS;
+    }
+    
+    int getMaxMatcens() const {
+        return MAX_MATCENS;
     }
     
     // Validation
@@ -225,6 +263,9 @@ private:
     std::vector<Wall> m_walls;
     std::vector<Trigger> m_triggers;
     std::vector<Object> m_objects;
+    std::vector<Matcen> m_robotMakers;      // Robot generators (D1 & D2)
+    std::vector<Matcen> m_equipmentMakers;  // Equipment generators (D2 only)
+    std::optional<ReactorTrigger> m_reactorTrigger; // Reactor destruction trigger
     
     // Level properties
     int m_reactorTime;          // Reactor countdown time (seconds)
@@ -235,10 +276,6 @@ private:
     
     // State
     bool m_changesMade;         // Has the level been modified?
-    
-    // TODO: Add these later when we implement the corresponding classes:
-    // std::vector<Matcen> m_matcens;
-    // std::unique_ptr<Reactor> m_reactor;
 };
 
 } // namespace dle

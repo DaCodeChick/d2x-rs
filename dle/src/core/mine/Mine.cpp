@@ -24,6 +24,9 @@ void Mine::clear() {
     m_walls.clear();
     m_triggers.clear();
     m_objects.clear();
+    m_robotMakers.clear();
+    m_equipmentMakers.clear();
+    m_reactorTrigger.reset();
     m_levelName.clear();
     m_hostageText.clear();
     m_reactorTime = 45;
@@ -208,9 +211,9 @@ bool Mine::load(const std::string& filename) {
         return false;  // Invalid game data signature
     }
     
-    // Read level version (from game data section)
+    // Read game data version (different from LVLP file version)
     int32_t gameVersion = reader.readInt32();
-    m_levelVersion = gameVersion;
+    // Note: gameVersion is save format version, not the same as m_levelVersion (D1/D2 distinction)
     
     // Read level name (if version >= 14)
     if (gameVersion >= 14) {
@@ -255,7 +258,37 @@ bool Mine::load(const std::string& filename) {
         m_triggers.push_back(trigger);
     }
     
-    // TODO: Read reactor trigger, matcens, light deltas, etc.
+    // Read reactor trigger (if present)
+    int32_t reactorTriggerCount = reader.readInt32();
+    if (reactorTriggerCount > 0) {
+        ReactorTrigger reactorTrigger;
+        reactorTrigger.read(reader);
+        m_reactorTrigger = reactorTrigger;
+    }
+    
+    // Read robot makers (matcens)
+    int32_t robotMakerCount = reader.readInt32();
+    m_robotMakers.clear();
+    m_robotMakers.reserve(std::min(robotMakerCount, getMaxMatcens()));
+    for (int i = 0; i < robotMakerCount && i < getMaxMatcens(); ++i) {
+        Matcen matcen;
+        matcen.read(reader, m_levelVersion);
+        m_robotMakers.push_back(matcen);
+    }
+    
+    // Read equipment makers (D2 only)
+    if (m_levelVersion >= LEVEL_VERSION_D2) {
+        int32_t equipmentMakerCount = reader.readInt32();
+        m_equipmentMakers.clear();
+        m_equipmentMakers.reserve(std::min(equipmentMakerCount, getMaxMatcens()));
+        for (int i = 0; i < equipmentMakerCount && i < getMaxMatcens(); ++i) {
+            Matcen matcen;
+            matcen.read(reader, m_levelVersion);
+            m_equipmentMakers.push_back(matcen);
+        }
+        
+        // TODO: Read light deltas (D2 only)
+    }
     
     if (m_levelName.empty()) {
         m_levelName = QString::fromStdString(filename).section('/', -1).section('.', 0, 0).toStdString();
@@ -350,7 +383,29 @@ bool Mine::save(const std::string& filename) {
         trigger.write(writer, false, m_levelVersion);  // false = wall trigger
     }
     
-    // TODO: Write reactor trigger, matcens, light deltas, etc.
+    // Write reactor trigger
+    if (m_reactorTrigger.has_value()) {
+        writer.writeInt32(1);  // Count = 1
+        m_reactorTrigger->write(writer);
+    } else {
+        writer.writeInt32(0);  // Count = 0
+    }
+    
+    // Write robot makers
+    writer.writeInt32(static_cast<int32_t>(m_robotMakers.size()));
+    for (const auto& matcen : m_robotMakers) {
+        matcen.write(writer, m_levelVersion);
+    }
+    
+    // Write equipment makers (D2 only)
+    if (m_levelVersion >= LEVEL_VERSION_D2) {
+        writer.writeInt32(static_cast<int32_t>(m_equipmentMakers.size()));
+        for (const auto& matcen : m_equipmentMakers) {
+            matcen.write(writer, m_levelVersion);
+        }
+        
+        // TODO: Write light deltas (D2 only)
+    }
     
     // Now go back and write the actual offsets
     qint64 endPos = writer.pos();
