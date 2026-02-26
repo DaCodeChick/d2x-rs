@@ -2,6 +2,8 @@
 #include "../io/FileReader.h"
 #include "../io/FileWriter.h"
 #include <QString>
+#include <QDebug>
+#include <QtTypes>
 #include <algorithm>
 
 namespace dle {
@@ -19,6 +21,9 @@ Mine::Mine()
 void Mine::clear() {
     m_vertices.clear();
     m_segments.clear();
+    m_walls.clear();
+    m_triggers.clear();
+    m_objects.clear();
     m_levelName.clear();
     m_hostageText.clear();
     m_reactorTime = 45;
@@ -136,17 +141,36 @@ bool Mine::load(const std::string& filename) {
         return false;
     }
     
-    // Detect file type from extension
-    QString qfilename = QString::fromStdString(filename);
-    if (qfilename.endsWith(".rdl", Qt::CaseInsensitive)) {
+    // Read LVLP signature
+    char fileSignature[4];
+    reader.readBytes(fileSignature, 4);
+    if (fileSignature[0] != 'L' || fileSignature[1] != 'V' || fileSignature[2] != 'L' || fileSignature[3] != 'P') {
+        return false;
+    }
+    
+    // Read file version
+    int32_t fileVersion = reader.readInt32();
+    
+    // Determine file type based on version
+    if (fileVersion == 1) {
         m_fileType = FileType::RDL;
         m_levelVersion = LEVEL_VERSION_D1;
-    } else if (qfilename.endsWith(".rl2", Qt::CaseInsensitive)) {
+    } else if (fileVersion >= 6 && fileVersion <= LEVEL_VERSION_D2) {
         m_fileType = FileType::RL2;
-        m_levelVersion = LEVEL_VERSION_D2;
+        m_levelVersion = fileVersion;
     } else {
-        return false;  // Unknown file type
+        return false;
     }
+    
+    // Read mine and game data offsets
+    int32_t mineDataOffset = reader.readInt32();
+    int32_t gameDataOffset = reader.readInt32();
+    
+    // Skip palette name and D2-specific reactor info for now
+    // (We'll implement these later)
+    
+    // Seek to mine data and load geometry
+    reader.seek(mineDataOffset);
     
     // Read header
     uint8_t compiledVersion = reader.readUInt8();
@@ -175,9 +199,68 @@ bool Mine::load(const std::string& filename) {
         m_segments.push_back(segment);
     }
     
-    // TODO: Read walls, triggers, objects, etc.
+    // Seek to game data section
+    reader.seek(gameDataOffset);
     
-    m_levelName = QString::fromStdString(filename).section('/', -1).section('.', 0, 0).toStdString();
+    // Read game data signature (0x6705)
+    uint16_t signature = reader.readUInt16();
+    if (signature != 0x6705) {
+        return false;  // Invalid game data signature
+    }
+    
+    // Read level version (from game data section)
+    int32_t gameVersion = reader.readInt32();
+    m_levelVersion = gameVersion;
+    
+    // Read level name (if version >= 14)
+    if (gameVersion >= 14) {
+        char nameBuffer[256] = {0};
+        int nameIdx = 0;
+        while (nameIdx < 255) {
+            char ch = reader.readInt8();
+            if (ch == '\n') ch = 0;
+            nameBuffer[nameIdx++] = ch;
+            if (ch == 0) break;
+        }
+        m_levelName = nameBuffer;
+    }
+    
+    // Read objects
+    int32_t objectCount = reader.readInt32();
+    m_objects.clear();
+    m_objects.reserve(std::min(objectCount, getMaxObjects()));
+    for (int i = 0; i < objectCount && i < getMaxObjects(); ++i) {
+        Object obj;
+        obj.read(reader, m_levelVersion);
+        m_objects.push_back(obj);
+    }
+    
+    // Read walls
+    int32_t wallCount = reader.readInt32();
+    m_walls.clear();
+    m_walls.reserve(std::min(wallCount, getMaxWalls()));
+    for (int i = 0; i < wallCount && i < getMaxWalls(); ++i) {
+        Wall wall;
+        wall.read(reader, m_levelVersion);
+        m_walls.push_back(wall);
+    }
+    
+    // Read triggers (wall triggers)
+    int32_t triggerCount = reader.readInt32();
+    m_triggers.clear();
+    m_triggers.reserve(std::min(triggerCount, getMaxTriggers()));
+    for (int i = 0; i < triggerCount && i < getMaxTriggers(); ++i) {
+        Trigger trigger;
+        trigger.read(reader, false, m_levelVersion);  // false = wall trigger
+        m_triggers.push_back(trigger);
+    }
+    
+    // TODO: Read reactor trigger, matcens, light deltas, etc.
+    
+    if (m_levelName.empty()) {
+        m_levelName = QString::fromStdString(filename).section('/', -1).section('.', 0, 0).toStdString();
+    }
+    
     m_changesMade = false;
     
     return !reader.hasError();
@@ -189,6 +272,33 @@ bool Mine::save(const std::string& filename) {
         return false;
     }
     
+    // Write LVLP signature
+    writer.writeInt8('L');
+    writer.writeInt8('V');
+    writer.writeInt8('L');
+    writer.writeInt8('P');
+    
+    // Write file version
+    int32_t fileVersion = (m_fileType == FileType::RDL) ? 1 : m_levelVersion;
+    writer.writeInt32(fileVersion);
+    
+    // Reserve space for offsets (we'll come back and write these)
+    qint64 mineOffsetPos = writer.pos();
+    writer.writeInt32(0);  // Placeholder for mine data offset
+    writer.writeInt32(0);  // Placeholder for game data offset
+    
+    // For D1 files, write 4 padding bytes (observed in original files)
+    if (m_fileType == FileType::RDL) {
+        writer.writeInt32(0);
+    }
+    
+    // Skip D2-specific data for now (palette, reactor, secret segment)
+    // In a full implementation, we'd write these here
+    
+    // Remember where mine data starts
+    qint64 mineDataOffset = writer.pos();
+    
+    // Write mine geometry
     // Write header
     writer.writeUInt8(0);  // Compiled version
     writer.writeUInt16(static_cast<uint16_t>(m_vertices.size()));
@@ -204,7 +314,50 @@ bool Mine::save(const std::string& filename) {
         segment.write(writer);
     }
     
-    // TODO: Write walls, triggers, objects, etc.
+    // Remember where game data starts
+    qint64 gameDataOffset = writer.pos();
+    
+    // Write game data signature (0x6705)
+    writer.writeUInt16(0x6705);
+    
+    // Write level version
+    writer.writeInt32(m_levelVersion);
+    
+    // Write level name (if version >= 14)
+    if (m_levelVersion >= 14) {
+        const char* name = m_levelName.empty() ? "Untitled" : m_levelName.c_str();
+        for (const char* p = name; *p != 0; ++p) {
+            writer.writeInt8(*p);
+        }
+        writer.writeInt8(0);  // Null terminator
+    }
+    
+    // Write objects
+    writer.writeInt32(static_cast<int32_t>(m_objects.size()));
+    for (const auto& obj : m_objects) {
+        obj.write(writer, m_levelVersion);
+    }
+    
+    // Write walls
+    writer.writeInt32(static_cast<int32_t>(m_walls.size()));
+    for (const auto& wall : m_walls) {
+        wall.write(writer, m_levelVersion);
+    }
+    
+    // Write triggers
+    writer.writeInt32(static_cast<int32_t>(m_triggers.size()));
+    for (const auto& trigger : m_triggers) {
+        trigger.write(writer, false, m_levelVersion);  // false = wall trigger
+    }
+    
+    // TODO: Write reactor trigger, matcens, light deltas, etc.
+    
+    // Now go back and write the actual offsets
+    qint64 endPos = writer.pos();
+    writer.seek(mineOffsetPos);
+    writer.writeInt32(static_cast<int32_t>(mineDataOffset));
+    writer.writeInt32(static_cast<int32_t>(gameDataOffset));
+    writer.seek(endPos);
     
     writer.flush();
     m_changesMade = false;

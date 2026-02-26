@@ -3,6 +3,9 @@
 
 #include "../types/Types.h"
 #include "Segment.h"
+#include "Wall.h"
+#include "Trigger.h"
+#include "Object.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -105,6 +108,45 @@ public:
     
     void removeSegment(int index);
     
+    // Walls
+    std::vector<Wall>& getWalls() { return m_walls; }
+    const std::vector<Wall>& getWalls() const { return m_walls; }
+    int getWallCount() const { return static_cast<int>(m_walls.size()); }
+    
+    Wall& getWall(int index) { return m_walls[index]; }
+    const Wall& getWall(int index) const { return m_walls[index]; }
+    
+    int addWall(const Wall& wall) {
+        m_walls.push_back(wall);
+        return static_cast<int>(m_walls.size()) - 1;
+    }
+    
+    // Triggers
+    std::vector<Trigger>& getTriggers() { return m_triggers; }
+    const std::vector<Trigger>& getTriggers() const { return m_triggers; }
+    int getTriggerCount() const { return static_cast<int>(m_triggers.size()); }
+    
+    Trigger& getTrigger(int index) { return m_triggers[index]; }
+    const Trigger& getTrigger(int index) const { return m_triggers[index]; }
+    
+    int addTrigger(const Trigger& trigger) {
+        m_triggers.push_back(trigger);
+        return static_cast<int>(m_triggers.size()) - 1;
+    }
+    
+    // Objects
+    std::vector<Object>& getObjects() { return m_objects; }
+    const std::vector<Object>& getObjects() const { return m_objects; }
+    int getObjectCount() const { return static_cast<int>(m_objects.size()); }
+    
+    Object& getObject(int index) { return m_objects[index]; }
+    const Object& getObject(int index) const { return m_objects[index]; }
+    
+    int addObject(const Object& object) {
+        m_objects.push_back(object);
+        return static_cast<int>(m_objects.size()) - 1;
+    }
+    
     // Limits based on file type
     int getMaxSegments() const {
         if (isD2X()) return MAX_SEGMENTS_D2X;
@@ -179,6 +221,11 @@ private:
     std::vector<Vertex> m_vertices;
     std::vector<Segment> m_segments;
     
+    // Game entities
+    std::vector<Wall> m_walls;
+    std::vector<Trigger> m_triggers;
+    std::vector<Object> m_objects;
+    
     // Level properties
     int m_reactorTime;          // Reactor countdown time (seconds)
     int m_reactorStrength;      // Reactor strength (-1 = invulnerable)
@@ -190,9 +237,6 @@ private:
     bool m_changesMade;         // Has the level been modified?
     
     // TODO: Add these later when we implement the corresponding classes:
-    // std::vector<Wall> m_walls;
-    // std::vector<Trigger> m_triggers;
-    // std::vector<Object> m_objects;
     // std::vector<Matcen> m_matcens;
     // std::unique_ptr<Reactor> m_reactor;
 };
