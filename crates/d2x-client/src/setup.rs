@@ -30,6 +30,7 @@
 //! ```
 
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use std::path::PathBuf;
 use tracing::{info, warn};
 
@@ -38,9 +39,12 @@ pub struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AssetStatus>()
+        app.add_plugins(EguiPlugin::default())
+            .init_resource::<AssetStatus>()
             .init_resource::<SetupMode>()
+            .init_resource::<ConversionProgress>()
             .add_systems(Startup, check_assets.after(crate::initialize))
+            .add_systems(Update, setup_ui)
             .add_systems(Update, handle_setup);
     }
 }
@@ -135,13 +139,102 @@ fn handle_setup(
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if *mode == SetupMode::NeedsSetup {
-        // TODO: Show setup UI with file picker
-        // For now, just log that setup is needed
-
         // Placeholder: Press S to skip setup (for testing)
         if keyboard.just_pressed(KeyCode::KeyS) {
             warn!("Setup skipped by user (development mode)");
             status.ready = true;
         }
     }
+}
+
+/// Display setup UI with egui.
+fn setup_ui(
+    mut contexts: EguiContexts,
+    mode: Res<SetupMode>,
+    mut status: ResMut<AssetStatus>,
+    progress: Res<ConversionProgress>,
+) {
+    // Only show UI during setup stages
+    if *mode != SetupMode::NeedsSetup && *mode != SetupMode::Converting {
+        return;
+    }
+
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(100.0);
+
+            ui.heading("D2X-RS - First-Time Setup");
+            ui.add_space(20.0);
+
+            if *mode == SetupMode::NeedsSetup {
+                ui.label("Welcome to D2X-RS!");
+                ui.add_space(10.0);
+                ui.label(
+                    "To play, we need to convert assets from the original Descent installation.",
+                );
+                ui.add_space(10.0);
+                ui.label("This is a one-time process (like OpenMW or OpenRCT2).");
+                ui.add_space(30.0);
+
+                if let Some(ref source) = status.source_path {
+                    ui.label(format!("Selected: {}", source.display()));
+                    ui.add_space(10.0);
+
+                    if ui.button("Start Conversion").clicked() {
+                        info!("Starting asset conversion from: {:?}", source);
+                        // TODO: Trigger conversion
+                    }
+
+                    ui.add_space(10.0);
+
+                    if ui.button("Choose Different Folder").clicked() {
+                        // Open file dialog
+                        if let Some(path) = rfd::FileDialog::new()
+                            .set_title("Select Descent Installation Folder")
+                            .pick_folder()
+                        {
+                            info!("User selected Descent folder: {:?}", path);
+                            status.source_path = Some(path);
+                        }
+                    }
+                } else {
+                    if ui.button("Select Descent Installation Folder").clicked() {
+                        // Open file dialog
+                        if let Some(path) = rfd::FileDialog::new()
+                            .set_title("Select Descent Installation Folder")
+                            .pick_folder()
+                        {
+                            info!("User selected Descent folder: {:?}", path);
+                            status.source_path = Some(path);
+                        }
+                    }
+                }
+
+                ui.add_space(20.0);
+                ui.label("Press 'S' to skip (development mode)");
+            } else if *mode == SetupMode::Converting {
+                ui.label(format!("Converting Assets... ({:?})", progress.stage));
+                ui.add_space(20.0);
+
+                let progress_value =
+                    progress.files_done as f32 / progress.files_total.max(1) as f32;
+                ui.add(egui::ProgressBar::new(progress_value).show_percentage());
+
+                ui.add_space(10.0);
+                ui.label(format!(
+                    "{} / {} files",
+                    progress.files_done, progress.files_total
+                ));
+
+                if !progress.current_file.is_empty() {
+                    ui.add_space(10.0);
+                    ui.label(format!("Current: {}", progress.current_file));
+                }
+            }
+        });
+    });
 }

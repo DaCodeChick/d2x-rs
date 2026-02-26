@@ -4,7 +4,8 @@
 //! - **Textures**: PIG (8-bit indexed) and OGF (D3 textures) → PNG, WebP
 //! - **Models**: POF → glTF 2.0 / GLB
 //! - **Levels**: RDL/RL2 → glTF scenes
-//! - **Audio**: SNDs → WAV, HMP → MIDI (future)
+//! - **Audio**: PCM → WAV, HMP → MIDI
+//! - **Archives**: DHF/HOG2 → extracted files
 //!
 //! # Examples
 //!
@@ -45,12 +46,41 @@
 //! let glb_data = converter.pof_to_glb(&model, "Pyro-GL Ship", None).unwrap();
 //! fs::write("pyrogl.glb", glb_data).unwrap();
 //! ```
+//!
+//! ## Converting Sound Effects to WAV
+//!
+//! ```no_run
+//! use descent_core::converters::audio::AudioConverter;
+//! use std::fs;
+//!
+//! // Raw 8-bit PCM from PIG file
+//! let pcm_data: Vec<u8> = vec![128, 130, 135, 140];
+//! let converter = AudioConverter::new();
+//! let wav_data = converter.pcm_to_wav(&pcm_data, 22050).unwrap();
+//! fs::write("sound.wav", wav_data).unwrap();
+//! ```
+//!
+//! ## Extracting HOG Archives
+//!
+//! ```no_run
+//! use descent_core::converters::archive::ArchiveExtractor;
+//! use std::fs;
+//! use std::path::Path;
+//!
+//! let hog_data = fs::read("descent2.hog").unwrap();
+//! let extractor = ArchiveExtractor::new();
+//! extractor.extract_dhf(&hog_data, Path::new("./extracted")).unwrap();
+//! ```
 
+pub mod archive;
+pub mod audio;
 pub mod level;
 pub mod model;
 pub mod texture;
 
 // Re-export main types
+pub use archive::{ArchiveError, ArchiveExtractor};
+pub use audio::{AudioConvertError, AudioConverter};
 pub use level::LevelConverter;
 pub use model::ModelConverter;
 pub use texture::{ImageFormat, TextureConvertError, TextureConverter};
