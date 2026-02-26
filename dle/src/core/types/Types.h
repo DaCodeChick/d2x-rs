@@ -40,112 +40,173 @@ using ubyte = uint8_t;
 using ushort = uint16_t;
 using uint = uint32_t;
 
-// Vector types
-struct Vector {
-    fix x, y, z;
+// Generic 3D vector template
+template<typename T>
+struct Vec3 {
+    T x, y, z;
 
-    constexpr Vector() : x(0), y(0), z(0) {}
-    constexpr Vector(fix x_, fix y_, fix z_) : x(x_), y(y_), z(z_) {}
+    // Constructors
+    constexpr Vec3() : x(T(0)), y(T(0)), z(T(0)) {}
+    constexpr Vec3(T x_, T y_, T z_) : x(x_), y(y_), z(z_) {}
     
-    constexpr Vector operator+(const Vector& other) const {
-        return Vector(x + other.x, y + other.y, z + other.z);
+    // Conversion from other Vec3 types
+    template<typename U>
+    explicit Vec3(const Vec3<U>& other);
+    
+    // Basic arithmetic operators
+    constexpr Vec3 operator+(const Vec3& other) const {
+        return Vec3(x + other.x, y + other.y, z + other.z);
     }
     
-    constexpr Vector operator-(const Vector& other) const {
-        return Vector(x - other.x, y - other.y, z - other.z);
+    constexpr Vec3 operator-(const Vec3& other) const {
+        return Vec3(x - other.x, y - other.y, z - other.z);
     }
     
-    constexpr Vector operator*(fix scalar) const {
-        return Vector(fixMul(x, scalar), fixMul(y, scalar), fixMul(z, scalar));
-    }
-};
-
-struct DoubleVector {
-    double x, y, z;
-
-    constexpr DoubleVector() : x(0.0), y(0.0), z(0.0) {}
-    constexpr DoubleVector(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
-    
-    DoubleVector(const Vector& v) 
-        : x(fixToDouble(v.x))
-        , y(fixToDouble(v.y))
-        , z(fixToDouble(v.z)) {}
-    
-    Vector toVector() const {
-        return Vector(doubleToFix(x), doubleToFix(y), doubleToFix(z));
+    constexpr Vec3 operator-() const {
+        return Vec3(-x, -y, -z);
     }
     
-    constexpr DoubleVector operator+(const DoubleVector& other) const {
-        return DoubleVector(x + other.x, y + other.y, z + other.z);
+    // Scalar multiplication (generic)
+    constexpr Vec3 operator*(T scalar) const {
+        return Vec3(x * scalar, y * scalar, z * scalar);
     }
     
-    constexpr DoubleVector operator-(const DoubleVector& other) const {
-        return DoubleVector(x - other.x, y - other.y, z - other.z);
+    constexpr Vec3 operator/(T scalar) const {
+        return Vec3(x / scalar, y / scalar, z / scalar);
     }
     
-    constexpr DoubleVector operator*(double scalar) const {
-        return DoubleVector(x * scalar, y * scalar, z * scalar);
+    // Compound assignment
+    constexpr Vec3& operator+=(const Vec3& other) {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        return *this;
     }
     
-    double length() const {
-        return std::sqrt(x * x + y * y + z * z);
+    constexpr Vec3& operator-=(const Vec3& other) {
+        x -= other.x;
+        y -= other.y;
+        z -= other.z;
+        return *this;
     }
     
-    DoubleVector normalized() const {
-        double len = length();
-        return (len > 0.0) ? (*this) * (1.0 / len) : *this;
+    constexpr Vec3& operator*=(T scalar) {
+        x *= scalar;
+        y *= scalar;
+        z *= scalar;
+        return *this;
     }
     
-    constexpr double dot(const DoubleVector& other) const {
+    // Comparison
+    constexpr bool operator==(const Vec3& other) const {
+        return x == other.x && y == other.y && z == other.z;
+    }
+    
+    constexpr bool operator!=(const Vec3& other) const {
+        return !(*this == other);
+    }
+    
+    // Dot product
+    constexpr T dot(const Vec3& other) const {
         return x * other.x + y * other.y + z * other.z;
     }
     
-    constexpr DoubleVector cross(const DoubleVector& other) const {
-        return DoubleVector(
+    // Cross product
+    constexpr Vec3 cross(const Vec3& other) const {
+        return Vec3(
             y * other.z - z * other.y,
             z * other.x - x * other.z,
             x * other.y - y * other.x
         );
     }
-};
-
-// Matrix (orientation - right, up, forward vectors)
-struct Matrix {
-    Vector right;
-    Vector up;
-    Vector forward;
-
-    constexpr Matrix() 
-        : right(intToFix(1), 0, 0)
-        , up(0, intToFix(1), 0)
-        , forward(0, 0, intToFix(1)) {}
     
-    constexpr Matrix(const Vector& r, const Vector& u, const Vector& f)
-        : right(r), up(u), forward(f) {}
-};
-
-struct DoubleMatrix {
-    DoubleVector right;
-    DoubleVector up;
-    DoubleVector forward;
-
-    constexpr DoubleMatrix()
-        : right(1.0, 0.0, 0.0)
-        , up(0.0, 1.0, 0.0)
-        , forward(0.0, 0.0, 1.0) {}
+    // Length operations (only for floating-point types)
+    T length() const requires std::is_floating_point_v<T> {
+        return std::sqrt(x * x + y * y + z * z);
+    }
     
-    constexpr DoubleMatrix(const DoubleVector& r, const DoubleVector& u, const DoubleVector& f)
-        : right(r), up(u), forward(f) {}
+    T lengthSquared() const {
+        return x * x + y * y + z * z;
+    }
     
-    DoubleMatrix(const Matrix& m)
-        : right(m.right)
-        , up(m.up)
-        , forward(m.forward) {}
-    
-    Matrix toMatrix() const {
-        return Matrix(right.toVector(), up.toVector(), forward.toVector());
+    Vec3 normalized() const requires std::is_floating_point_v<T> {
+        T len = length();
+        return (len > T(0)) ? (*this) / len : *this;
     }
 };
+
+// Specialization for fix type (uses fixMul for multiplication)
+template<>
+inline constexpr Vec3<fix> Vec3<fix>::operator*(fix scalar) const {
+    return Vec3<fix>(fixMul(x, scalar), fixMul(y, scalar), fixMul(z, scalar));
+}
+
+template<>
+inline constexpr Vec3<fix>& Vec3<fix>::operator*=(fix scalar) {
+    x = fixMul(x, scalar);
+    y = fixMul(y, scalar);
+    z = fixMul(z, scalar);
+    return *this;
+}
+
+// Conversion constructors
+template<>
+template<>
+inline Vec3<double>::Vec3(const Vec3<fix>& other)
+    : x(fixToDouble(other.x))
+    , y(fixToDouble(other.y))
+    , z(fixToDouble(other.z)) {}
+
+template<>
+template<>
+inline Vec3<fix>::Vec3(const Vec3<double>& other)
+    : x(doubleToFix(other.x))
+    , y(doubleToFix(other.y))
+    , z(doubleToFix(other.z)) {}
+
+// Type aliases for compatibility
+using Vector = Vec3<fix>;
+using DoubleVector = Vec3<double>;
+
+// Generic 3x3 matrix template (orientation - right, up, forward vectors)
+template<typename T>
+struct Mat3 {
+    Vec3<T> right;
+    Vec3<T> up;
+    Vec3<T> forward;
+
+    // Default constructor - identity matrix
+    constexpr Mat3();
+    
+    // Construct from three vectors
+    constexpr Mat3(const Vec3<T>& r, const Vec3<T>& u, const Vec3<T>& f)
+        : right(r), up(u), forward(f) {}
+    
+    // Conversion from other Mat3 types
+    template<typename U>
+    explicit Mat3(const Mat3<U>& other)
+        : right(Vec3<T>(other.right))
+        , up(Vec3<T>(other.up))
+        , forward(Vec3<T>(other.forward)) {}
+};
+
+// Specialization for fix type - identity uses intToFix
+template<>
+inline constexpr Mat3<fix>::Mat3()
+    : right(intToFix(1), 0, 0)
+    , up(0, intToFix(1), 0)
+    , forward(0, 0, intToFix(1)) {}
+
+// Specialization for double type - identity uses 1.0
+template<>
+inline constexpr Mat3<double>::Mat3()
+    : right(1.0, 0.0, 0.0)
+    , up(0.0, 1.0, 0.0)
+    , forward(0.0, 0.0, 1.0) {}
+
+// Type aliases for compatibility
+using Matrix = Mat3<fix>;
+using DoubleMatrix = Mat3<double>;
 
 // UV Coordinates
 struct UVCoord {
