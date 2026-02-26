@@ -33,6 +33,8 @@ use bevy::prelude::*;
 use std::path::PathBuf;
 use tracing::{info, warn};
 
+use crate::ui::{Menu, MenuItem, MenuState};
+
 /// Plugin for handling first-time setup and asset conversion.
 pub struct SetupPlugin;
 
@@ -43,6 +45,7 @@ impl Plugin for SetupPlugin {
             .init_resource::<ConversionProgress>()
             .add_systems(Startup, check_assets.after(crate::initialize))
             .add_systems(Update, show_setup_message)
+            .add_systems(Update, show_setup_menu)
             .add_systems(Update, handle_setup_input);
     }
 }
@@ -160,5 +163,52 @@ fn handle_setup_input(
             warn!("Setup skipped by user (development mode)");
             status.ready = true;
         }
+    }
+}
+
+/// Show the setup menu UI
+fn show_setup_menu(
+    mut commands: Commands,
+    mode: Res<SetupMode>,
+    mut menu_state: ResMut<MenuState>,
+    mut shown: Local<bool>,
+    existing_menu: Query<Entity, With<Menu>>,
+) {
+    // Only show menu when setup is needed
+    if *mode != SetupMode::NeedsSetup {
+        return;
+    }
+
+    // Create menu once
+    if !*shown {
+        // Despawn any existing menu
+        for entity in existing_menu.iter() {
+            commands.entity(entity).despawn();
+        }
+
+        // Create a test menu with various item types
+        let menu = Menu::new("D2X-RS - First Time Setup")
+            .with_subtitle("Please configure your game settings")
+            .add_item(MenuItem::text("Welcome to D2X-RS!"))
+            .add_item(MenuItem::text(""))
+            .add_item(MenuItem::menu("Select Descent Installation Folder"))
+            .add_item(MenuItem::menu("Start Conversion"))
+            .add_item(MenuItem::text(""))
+            .add_item(MenuItem::text("Options:"))
+            .add_item(MenuItem::checkbox("Enable Enhanced Graphics", true))
+            .add_item(MenuItem::checkbox("Enable Remastered Music", false))
+            .add_item(MenuItem::slider("Volume", 75, 0, 100))
+            .add_item(MenuItem::text(""))
+            .add_item(MenuItem::menu("Skip (Dev Mode)"));
+
+        let menu_entity = commands.spawn(menu).id();
+
+        // Show the menu
+        menu_state.active_menu = Some(menu_entity);
+        menu_state.visible = true;
+        menu_state.selected_index = 2; // Select first selectable item
+
+        *shown = true;
+        info!("Setup menu created and displayed");
     }
 }

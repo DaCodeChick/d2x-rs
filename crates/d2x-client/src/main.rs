@@ -1,10 +1,12 @@
 mod setup;
+mod ui;
 
 use bevy::prelude::*;
 use d2x_engine::D2xEnginePlugin;
 use setup::{AssetStatus, SetupMode, SetupPlugin};
 use std::path::PathBuf;
 use tracing::info;
+use ui::MenuPlugin;
 
 fn main() {
     App::new()
@@ -16,6 +18,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(MenuPlugin)
         .add_plugins(SetupPlugin)
         .add_plugins(D2xEnginePlugin)
         .add_systems(Startup, initialize)
