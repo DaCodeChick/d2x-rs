@@ -30,7 +30,6 @@
 //! ```
 
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use std::path::PathBuf;
 use tracing::{info, warn};
 
@@ -39,13 +38,12 @@ pub struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(EguiPlugin::default())
-            .init_resource::<AssetStatus>()
+        app.init_resource::<AssetStatus>()
             .init_resource::<SetupMode>()
             .init_resource::<ConversionProgress>()
             .add_systems(Startup, check_assets.after(crate::initialize))
-            .add_systems(Update, setup_ui)
-            .add_systems(Update, handle_setup);
+            .add_systems(Update, show_setup_message)
+            .add_systems(Update, handle_setup_input);
     }
 }
 
@@ -132,8 +130,26 @@ fn check_assets(mut status: ResMut<AssetStatus>, mut mode: ResMut<SetupMode>) {
     }
 }
 
-/// Handle setup flow.
-fn handle_setup(
+/// Show setup message once when setup is needed.
+fn show_setup_message(mode: Res<SetupMode>, mut shown: Local<bool>) {
+    if *mode == SetupMode::NeedsSetup && !*shown {
+        println!("\n╔══════════════════════════════════════════════════════════╗");
+        println!("║           D2X-RS - FIRST-TIME SETUP REQUIRED            ║");
+        println!("╠══════════════════════════════════════════════════════════╣");
+        println!("║                                                          ║");
+        println!("║  To play, we need to convert assets from the original   ║");
+        println!("║  Descent installation. This is a one-time process.      ║");
+        println!("║                                                          ║");
+        println!("║  TODO: Implement asset conversion pipeline              ║");
+        println!("║        (Press 'S' to skip for now - dev mode)           ║");
+        println!("║                                                          ║");
+        println!("╚══════════════════════════════════════════════════════════╝\n");
+        *shown = true;
+    }
+}
+
+/// Handle setup flow input.
+fn handle_setup_input(
     mode: Res<SetupMode>,
     mut status: ResMut<AssetStatus>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -145,96 +161,4 @@ fn handle_setup(
             status.ready = true;
         }
     }
-}
-
-/// Display setup UI with egui.
-fn setup_ui(
-    mut contexts: EguiContexts,
-    mode: Res<SetupMode>,
-    mut status: ResMut<AssetStatus>,
-    progress: Res<ConversionProgress>,
-) {
-    // Only show UI during setup stages
-    if *mode != SetupMode::NeedsSetup && *mode != SetupMode::Converting {
-        return;
-    }
-
-    let Ok(ctx) = contexts.ctx_mut() else {
-        return;
-    };
-
-    egui::CentralPanel::default().show(ctx, |ui| {
-        ui.vertical_centered(|ui| {
-            ui.add_space(100.0);
-
-            ui.heading("D2X-RS - First-Time Setup");
-            ui.add_space(20.0);
-
-            if *mode == SetupMode::NeedsSetup {
-                ui.label("Welcome to D2X-RS!");
-                ui.add_space(10.0);
-                ui.label(
-                    "To play, we need to convert assets from the original Descent installation.",
-                );
-                ui.add_space(10.0);
-                ui.label("This is a one-time process (like OpenMW or OpenRCT2).");
-                ui.add_space(30.0);
-
-                if let Some(ref source) = status.source_path {
-                    ui.label(format!("Selected: {}", source.display()));
-                    ui.add_space(10.0);
-
-                    if ui.button("Start Conversion").clicked() {
-                        info!("Starting asset conversion from: {:?}", source);
-                        // TODO: Trigger conversion
-                    }
-
-                    ui.add_space(10.0);
-
-                    if ui.button("Choose Different Folder").clicked() {
-                        // Open file dialog
-                        if let Some(path) = rfd::FileDialog::new()
-                            .set_title("Select Descent Installation Folder")
-                            .pick_folder()
-                        {
-                            info!("User selected Descent folder: {:?}", path);
-                            status.source_path = Some(path);
-                        }
-                    }
-                } else {
-                    if ui.button("Select Descent Installation Folder").clicked() {
-                        // Open file dialog
-                        if let Some(path) = rfd::FileDialog::new()
-                            .set_title("Select Descent Installation Folder")
-                            .pick_folder()
-                        {
-                            info!("User selected Descent folder: {:?}", path);
-                            status.source_path = Some(path);
-                        }
-                    }
-                }
-
-                ui.add_space(20.0);
-                ui.label("Press 'S' to skip (development mode)");
-            } else if *mode == SetupMode::Converting {
-                ui.label(format!("Converting Assets... ({:?})", progress.stage));
-                ui.add_space(20.0);
-
-                let progress_value =
-                    progress.files_done as f32 / progress.files_total.max(1) as f32;
-                ui.add(egui::ProgressBar::new(progress_value).show_percentage());
-
-                ui.add_space(10.0);
-                ui.label(format!(
-                    "{} / {} files",
-                    progress.files_done, progress.files_total
-                ));
-
-                if !progress.current_file.is_empty() {
-                    ui.add_space(10.0);
-                    ui.label(format!("Current: {}", progress.current_file));
-                }
-            }
-        });
-    });
 }

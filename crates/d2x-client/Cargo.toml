@@ -19,10 +19,6 @@ d2x-engine = { path = "../d2x-engine" }
 # Bevy
 bevy = { workspace = true, features = ["dynamic_linking", "bevy_winit", "x11"] }
 
-# UI
-bevy_egui = "0.39"
-rfd = "0.15"
-
 # Error handling
 thiserror = { workspace = true }
 anyhow = { workspace = true }
