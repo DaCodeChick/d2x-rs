@@ -396,6 +396,15 @@ impl Level {
             cursor.read_i32_le()? as usize
         };
 
+        // Infer version from file format
+        // Note: Cannot distinguish D2 Shareware (v5) from D2+ (v2-20) without heuristics
+        // Default to current version for new format, D1 for old format
+        let version = if new_file_format {
+            MINE_VERSION
+        } else {
+            LEVEL_VERSION_D1
+        };
+
         // Read vertices
         let vertices = (0..vertex_count)
             .map(|_| read_fix_vector(&mut cursor))
@@ -403,16 +412,18 @@ impl Level {
 
         // Read segments
         let mut segments = (0..segment_count)
-            .map(|_| Self::read_segment(&mut cursor, new_file_format, vertex_count))
+            .map(|_| Self::read_segment(&mut cursor, new_file_format, vertex_count, version))
             .collect::<Result<Vec<_>>>()?;
 
-        // Read segment extras
-        segments.iter_mut().try_for_each(|segment| {
-            Self::read_segment_extras(&mut cursor, segment, MINE_VERSION)
-        })?;
+        // Read segment extras (only for D2+, versions 2-20)
+        if version >= 2 {
+            segments
+                .iter_mut()
+                .try_for_each(|segment| Self::read_segment_extras(&mut cursor, segment, version))?;
+        }
 
         Ok(Self {
-            version: MINE_VERSION,
+            version,
             new_file_format,
             vertices,
             segments,
@@ -424,6 +435,7 @@ impl Level {
         cursor: &mut Cursor<&[u8]>,
         new_file_format: bool,
         vertex_count: usize,
+        version: u8,
     ) -> Result<Segment> {
         // Note: owner and group default to -1 (D2X-XL only, not implemented yet)
         let mut segment = Segment::default();
@@ -436,41 +448,29 @@ impl Level {
         };
 
         // Determine reading order based on version
-        // For now, assume D2 format (v2-20): children, verts
-        // TODO: Support D1 (v1) and D2 Shareware (v5) layouts
+        // - D1 (v1): children, verts, function
+        // - D2 Shareware (v5): function, verts, children
+        // - D2+ (v2-20): children, verts
 
-        // Read children
-        segment.children = (0..SEGMENT_SIDE_COUNT)
-            .map(|i| {
-                if (flags & (1 << i)) != 0 {
-                    cursor.read_i16_le()
-                } else {
-                    Ok(-1)
-                }
-            })
-            .collect::<Result<Vec<_>>>()?
-            .try_into()
-            .map_err(|_| {
-                AssetError::InvalidLevelFormat("Invalid children array length".to_string())
-            })?;
-
-        // Read vertices
-        segment.vertices = (0..SEGMENT_VERTEX_COUNT)
-            .map(|_| {
-                let vertex_idx = cursor.read_u16_le()?;
-                if vertex_idx as usize >= vertex_count {
-                    return Err(AssetError::InvalidLevelFormat(format!(
-                        "Vertex index {} out of range (max {})",
-                        vertex_idx, vertex_count
-                    )));
-                }
-                Ok(vertex_idx)
-            })
-            .collect::<Result<Vec<_>>>()?
-            .try_into()
-            .map_err(|_| {
-                AssetError::InvalidLevelFormat("Invalid vertices array length".to_string())
-            })?;
+        match version {
+            LEVEL_VERSION_D2_SHAREWARE => {
+                // D2 Shareware (v5): function, verts, children
+                Self::read_segment_function_v5(cursor, &mut segment, flags)?;
+                Self::read_segment_vertices(cursor, &mut segment, vertex_count)?;
+                Self::read_segment_children(cursor, &mut segment, flags)?;
+            }
+            LEVEL_VERSION_D1 => {
+                // D1 (v1): children, verts, function
+                Self::read_segment_children(cursor, &mut segment, flags)?;
+                Self::read_segment_vertices(cursor, &mut segment, vertex_count)?;
+                Self::read_segment_function_v1(cursor, &mut segment)?;
+            }
+            _ => {
+                // D2+ (v2-20): children, verts (no inline function)
+                Self::read_segment_children(cursor, &mut segment, flags)?;
+                Self::read_segment_vertices(cursor, &mut segment, vertex_count)?;
+            }
+        }
 
         // Read wall flags
         let wall_flags = if new_file_format {
@@ -483,7 +483,7 @@ impl Level {
         let wall_nums: Vec<u16> = (0..SEGMENT_SIDE_COUNT)
             .map(|i| {
                 if (wall_flags & (1 << i)) != 0 {
-                    // TODO: Check version for u8 vs u16
+                    // Wall numbers are always u16 in all versions
                     cursor.read_u16_le()
                 } else {
                     Ok(0xFFFF)
@@ -507,6 +507,80 @@ impl Level {
         })?;
 
         Ok(segment)
+    }
+
+    /// Read segment children array
+    fn read_segment_children(
+        cursor: &mut Cursor<&[u8]>,
+        segment: &mut Segment,
+        flags: u8,
+    ) -> Result<()> {
+        segment.children = (0..SEGMENT_SIDE_COUNT)
+            .map(|i| {
+                if (flags & (1 << i)) != 0 {
+                    cursor.read_i16_le()
+                } else {
+                    Ok(-1)
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
+            .try_into()
+            .map_err(|_| {
+                AssetError::InvalidLevelFormat("Invalid children array length".to_string())
+            })?;
+        Ok(())
+    }
+
+    /// Read segment vertices array
+    fn read_segment_vertices(
+        cursor: &mut Cursor<&[u8]>,
+        segment: &mut Segment,
+        vertex_count: usize,
+    ) -> Result<()> {
+        segment.vertices = (0..SEGMENT_VERTEX_COUNT)
+            .map(|_| {
+                let vertex_idx = cursor.read_u16_le()?;
+                if vertex_idx as usize >= vertex_count {
+                    return Err(AssetError::InvalidLevelFormat(format!(
+                        "Vertex index {} out of range (max {})",
+                        vertex_idx, vertex_count
+                    )));
+                }
+                Ok(vertex_idx)
+            })
+            .collect::<Result<Vec<_>>>()?
+            .try_into()
+            .map_err(|_| {
+                AssetError::InvalidLevelFormat("Invalid vertices array length".to_string())
+            })?;
+        Ok(())
+    }
+
+    /// Read segment function data (D1 v1 format)
+    fn read_segment_function_v1(cursor: &mut Cursor<&[u8]>, segment: &mut Segment) -> Result<()> {
+        // D1 format: i16 static_light, followed by segment type
+        let static_light = cursor.read_i16_le()?;
+        segment.avg_seg_light = Fix::from((static_light as i32) << 4); // Convert to fix by shifting
+
+        // Read segment type/function
+        let func_byte = cursor.read_u8()?;
+        segment.function = SegmentFunc::from(func_byte);
+
+        Ok(())
+    }
+
+    /// Read segment function data (D2 Shareware v5 format)  
+    fn read_segment_function_v5(
+        cursor: &mut Cursor<&[u8]>,
+        segment: &mut Segment,
+        flags: u8,
+    ) -> Result<()> {
+        // V5 format: function data is present if bit 6 of flags is set
+        if (flags & (1 << 6)) != 0 {
+            let func_byte = cursor.read_u8()?;
+            segment.function = SegmentFunc::from(func_byte);
+        }
+        Ok(())
     }
 
     /// Read a single side
