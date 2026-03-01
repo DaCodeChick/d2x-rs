@@ -56,8 +56,11 @@ base-d3 = []
 # Extended limits (D2X-XL)
 extended-limits = []
 
-# High-res asset support
+# High-res asset support (D2X-XL ASE models and TGA textures)
 hires-assets = []
+
+# D2X-XL support (includes extended-limits and hires-assets)
+d2x-xl = ["extended-limits", "hires-assets"]
 
 # Video conversion (MVE to MP4)
 video = ["dep:ffmpeg-next"]

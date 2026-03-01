@@ -4,7 +4,7 @@
 //! different Descent game versions:
 //!
 //! - **POF**: Descent 1 & 2 polygon object format
-//! - **ASE**: ASCII Scene Export format (D2X-XL high-res models)
+//! - **ASE**: ASCII Scene Export format (D2X-XL high-res models, requires `hires-assets` feature)
 //! - **OOF**: Descent 3 Outrage object format (future)
 //!
 //! # Examples
@@ -24,6 +24,8 @@
 //! ## Parsing an ASE model
 //!
 //! ```no_run
+//! # #[cfg(feature = "hires-assets")]
+//! # {
 //! use descent_core::models::Model;
 //! use std::fs;
 //!
@@ -31,6 +33,7 @@
 //! let model = Model::from_ase(&data).unwrap();
 //!
 //! println!("Model has {} objects", model.subobject_count());
+//! # }
 //! ```
 //!
 //! ## Converting to glTF
@@ -49,19 +52,25 @@
 //! fs::write("pyro-gl.glb", glb).unwrap();
 //! ```
 
+#[cfg(feature = "hires-assets")]
 use crate::ase::AseFile;
-use crate::error::{AssetError, Result};
+use crate::error::Result;
 use crate::pof::PofModel;
 
 /// A 3D model from any supported format.
 ///
 /// This is a unified wrapper around different model formats (POF, ASE, OOF, etc.).
 /// Use the format-specific methods to access the underlying data.
+///
+/// # Feature Requirements
+///
+/// - `Ase` variant requires the `hires-assets` feature
 #[derive(Debug)]
 pub enum Model {
     /// Descent 1/2 POF (Polygon Object Format) model
     Pof(PofModel),
     /// D2X-XL ASE (ASCII Scene Export) high-resolution model
+    #[cfg(feature = "hires-assets")]
     Ase(AseFile),
     /// Descent 3 OOF (Outrage Object Format) model - not yet implemented
     #[allow(dead_code)]
@@ -89,6 +98,8 @@ impl Model {
 
     /// Parse an ASE (D2X-XL) model from text data.
     ///
+    /// Requires the `hires-assets` feature to be enabled.
+    ///
     /// # Arguments
     ///
     /// * `data` - ASE file content as string
@@ -96,10 +107,14 @@ impl Model {
     /// # Example
     ///
     /// ```no_run
+    /// # #[cfg(feature = "hires-assets")]
+    /// # {
     /// # use descent_core::models::Model;
     /// # let data = String::new();
     /// let model = Model::from_ase(&data).unwrap();
+    /// # }
     /// ```
+    #[cfg(feature = "hires-assets")]
     pub fn from_ase(data: &str) -> Result<Self> {
         let ase = AseFile::parse(data)?;
         Ok(Self::Ase(ase))
@@ -108,7 +123,8 @@ impl Model {
     /// Detect model format and parse accordingly.
     ///
     /// Automatically detects the format based on file signature/content and parses.
-    /// For text files, attempts to parse as ASE. For binary files, tries POF.
+    /// For text files (if `hires-assets` feature enabled), attempts to parse as ASE.
+    /// Otherwise, attempts to parse as binary POF.
     ///
     /// # Arguments
     ///
@@ -122,26 +138,17 @@ impl Model {
     /// let model = Model::parse(data).unwrap();
     /// ```
     pub fn parse(data: Vec<u8>) -> Result<Self> {
-        // Try POF first (starts with "PSPO" signature)
-        if data.len() >= 4 && &data[0..4] == b"PSPO" {
-            return Self::from_pof(&data);
-        }
-
-        // Try ASE (text file starting with *3DSMAX_ASCIIEXPORT)
+        // Try ASE first (text file starting with *3DSMAX_ASCIIEXPORT)
+        #[cfg(feature = "hires-assets")]
         if let Ok(text) = std::str::from_utf8(&data) {
             if text.trim_start().starts_with("*3DSMAX_ASCIIEXPORT") {
                 return Self::from_ase(text);
             }
         }
 
-        // Future: Check for OOF signature
-        // if data.len() >= 4 && &data[0..4] == b"OOF " {
-        //     return Self::from_oof(&data);
-        // }
-
-        Err(AssetError::InvalidFormat(
-            "Unknown model format - not POF, ASE, or OOF".to_string(),
-        ))
+        // Try POF (binary opcode format)
+        // POF files don't have a signature, just raw opcodes
+        Self::from_pof(&data)
     }
 
     /// Get the underlying POF model, if this is a POF.
@@ -165,16 +172,22 @@ impl Model {
 
     /// Get the underlying ASE model, if this is an ASE.
     ///
+    /// Requires the `hires-assets` feature to be enabled.
+    ///
     /// # Example
     ///
     /// ```no_run
+    /// # #[cfg(feature = "hires-assets")]
+    /// # {
     /// # use descent_core::models::Model;
     /// # let data = "*3DSMAX_ASCIIEXPORT 200\n";
     /// let model = Model::from_ase(data).unwrap();
     /// if let Some(ase) = model.as_ase() {
     ///     println!("ASE has {} objects", ase.geom_objects.len());
     /// }
+    /// # }
     /// ```
+    #[cfg(feature = "hires-assets")]
     pub fn as_ase(&self) -> Option<&AseFile> {
         match self {
             Self::Ase(ase) => Some(ase),
@@ -188,6 +201,7 @@ impl Model {
     pub fn subobject_count(&self) -> usize {
         match self {
             Self::Pof(pof) => pof.submodel_calls.len(),
+            #[cfg(feature = "hires-assets")]
             Self::Ase(ase) => ase.geom_objects.len(),
             Self::Oof => 0,
         }
@@ -206,6 +220,7 @@ impl Model {
     pub fn format_type(&self) -> &'static str {
         match self {
             Self::Pof(_) => "POF",
+            #[cfg(feature = "hires-assets")]
             Self::Ase(_) => "ASE",
             Self::Oof => "OOF",
         }
