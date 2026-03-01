@@ -50,6 +50,8 @@ private slots:
     void onViewWireframe();
     void onViewTextured();
     void onViewLighting();
+    void onToggleTexturePalette();
+    void onToggleTextureBar();
     
     // Help menu
     void onHelpAbout();
