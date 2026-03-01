@@ -1,9 +1,10 @@
-//! Model format converters for POF (Polygon Object File) format.
+//! Model format converters for POF and ASE formats.
 //!
-//! This module provides converters for Descent's 3D model format:
+//! This module provides converters for Descent's 3D model formats:
 //! - **POF**: Descent 1/2 polygon-based models (ships, robots, powerups)
+//! - **ASE**: D2X-XL high-resolution models (3D Studio Max ASCII export)
 //!
-//! POF models can be converted to glTF 2.0 / GLB format for use in modern engines.
+//! Both formats can be converted to glTF 2.0 / GLB format for use in modern engines.
 //!
 //! # Examples
 //!
@@ -48,6 +49,24 @@
 //! let converter = ModelConverter::new();
 //! let glb = converter.pof_to_glb(&model, "Pyro-GL Ship", Some(&provider)).unwrap();
 //! fs::write("pyrogl.glb", glb).unwrap();
+//! ```
+//!
+//! ## Converting ASE Model to GLB (High-Res)
+//!
+//! ```no_run
+//! # #[cfg(feature = "hires-assets")]
+//! # {
+//! use descent_core::ase::AseFile;
+//! use descent_core::converters::model::ModelConverter;
+//! use std::fs;
+//!
+//! let ase_data = fs::read_to_string("pyrogl-hires.ase").unwrap();
+//! let ase = AseFile::parse(&ase_data).unwrap();
+//!
+//! let converter = ModelConverter::new();
+//! let glb = converter.ase_to_glb(&ase, "Pyro-GL High-Res").unwrap();
+//! fs::write("pyrogl-hires.glb", glb).unwrap();
+//! # }
 //! ```
 
 use crate::error::{AssetError, Result};
@@ -252,6 +271,243 @@ impl ModelConverter {
         glb.write_all(&bin_buffer)?; // chunkData
 
         Ok(glb)
+    }
+
+    /// Convert an ASE model to GLB (binary glTF 2.0) format.
+    ///
+    /// # Arguments
+    ///
+    /// * `ase` - The parsed ASE file
+    /// * `name` - Name for the model (e.g., "Pyro-GL Ship High-Res")
+    ///
+    /// # Returns
+    ///
+    /// A Vec<u8> containing the complete GLB file
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # #[cfg(feature = "hires-assets")]
+    /// # {
+    /// use descent_core::ase::AseFile;
+    /// use descent_core::converters::model::ModelConverter;
+    ///
+    /// let ase_data = std::fs::read_to_string("model.ase").unwrap();
+    /// let ase = AseFile::parse(&ase_data).unwrap();
+    ///
+    /// let converter = ModelConverter::new();
+    /// let glb = converter.ase_to_glb(&ase, "High-Res Model").unwrap();
+    /// std::fs::write("model.glb", glb).unwrap();
+    /// # }
+    /// ```
+    #[cfg(feature = "hires-assets")]
+    pub fn ase_to_glb(&self, ase: &crate::ase::AseFile, name: &str) -> Result<Vec<u8>> {
+        if ase.geom_objects.is_empty() {
+            return Err(AssetError::InvalidFormat(
+                "ASE file has no geometry objects".to_string(),
+            ));
+        }
+
+        // Convert ASE geometry to glTF-compatible format
+        let geometry = self.extract_ase_geometry(ase)?;
+
+        // Build binary buffer (vertex + index data)
+        let bin_buffer = self.build_binary_buffer(&geometry)?;
+
+        // Extract texture images from ASE materials
+        let texture_images = self.extract_ase_textures(ase)?;
+
+        // Build glTF JSON structure
+        let root = self.build_gltf_json(
+            name,
+            &geometry,
+            &texture_images,
+            None, // No palette for ASE (uses true color)
+            bin_buffer.len(),
+        )?;
+
+        // Serialize to JSON
+        let json_string = serde_json::to_string(&root).map_err(|e| {
+            AssetError::InvalidFormat(format!("Failed to serialize glTF JSON: {}", e))
+        })?;
+        let mut json_bytes = json_string.into_bytes();
+
+        // Pad JSON to 4-byte alignment with spaces (0x20)
+        let json_padding = (4 - (json_bytes.len() % 4)) % 4;
+        json_bytes.resize(json_bytes.len() + json_padding, 0x20);
+
+        // Pad binary buffer to 4-byte alignment with zeros (0x00)
+        let mut bin_buffer = bin_buffer;
+        let bin_padding = (4 - (bin_buffer.len() % 4)) % 4;
+        bin_buffer.resize(bin_buffer.len() + bin_padding, 0x00);
+
+        // Build GLB file
+        let total_length = 12 + 8 + json_bytes.len() + 8 + bin_buffer.len();
+        let mut glb = Vec::with_capacity(total_length);
+
+        // Write GLB header (12 bytes)
+        glb.write_all(&0x46546C67u32.to_le_bytes())?; // magic: "glTF"
+        glb.write_all(&2u32.to_le_bytes())?; // version: 2
+        glb.write_all(&(total_length as u32).to_le_bytes())?; // length
+
+        // Write JSON chunk (8 + json_bytes.len())
+        glb.write_all(&(json_bytes.len() as u32).to_le_bytes())?; // chunkLength
+        glb.write_all(&0x4E4F534Au32.to_le_bytes())?; // chunkType: "JSON"
+        glb.write_all(&json_bytes)?; // chunkData
+
+        // Write BIN chunk (8 + bin_buffer.len())
+        glb.write_all(&(bin_buffer.len() as u32).to_le_bytes())?; // chunkLength
+        glb.write_all(&0x004E4942u32.to_le_bytes())?; // chunkType: "BIN\0"
+        glb.write_all(&bin_buffer)?; // chunkData
+
+        Ok(glb)
+    }
+
+    /// Extract geometry data from ASE model, grouped by material.
+    #[cfg(feature = "hires-assets")]
+    fn extract_ase_geometry(&self, ase: &crate::ase::AseFile) -> Result<GeometryData> {
+        use std::collections::HashMap;
+
+        let mut all_positions = Vec::new();
+        let mut primitives = Vec::new();
+        let mut position_offset = 0;
+
+        // Process each geometry object
+        for geom_obj in &ase.geom_objects {
+            let mesh = &geom_obj.mesh;
+
+            if mesh.vertices.is_empty() || mesh.faces.is_empty() {
+                continue;
+            }
+
+            // Add positions for this object
+            for vertex in &mesh.vertices {
+                all_positions.extend_from_slice(vertex);
+            }
+
+            // Group faces by material
+            let mut material_faces: HashMap<usize, Vec<&crate::ase::AseFace>> = HashMap::new();
+            for face in &mesh.faces {
+                material_faces
+                    .entry(face.material_id)
+                    .or_insert_with(Vec::new)
+                    .push(face);
+            }
+
+            // Create primitives for each material group
+            for (material_id, faces) in material_faces {
+                let mut indices = Vec::new();
+                let mut normals = Vec::new();
+                let mut uvs = Vec::new();
+
+                for face in faces {
+                    // Add indices (offset by current position count)
+                    for &vertex_idx in &face.vertices {
+                        indices.push((position_offset + vertex_idx) as u32);
+                    }
+
+                    // Add normals (use per-vertex normals if available, otherwise face normal)
+                    for &vertex_idx in &face.vertices {
+                        if vertex_idx < mesh.normals.len() {
+                            normals.extend_from_slice(&mesh.normals[vertex_idx]);
+                        } else {
+                            // Fallback: calculate face normal
+                            let v0 = mesh.vertices[face.vertices[0]];
+                            let v1 = mesh.vertices[face.vertices[1]];
+                            let v2 = mesh.vertices[face.vertices[2]];
+
+                            let edge1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+                            let edge2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+
+                            let normal = [
+                                edge1[1] * edge2[2] - edge1[2] * edge2[1],
+                                edge1[2] * edge2[0] - edge1[0] * edge2[2],
+                                edge1[0] * edge2[1] - edge1[1] * edge2[0],
+                            ];
+
+                            // Normalize
+                            let len = (normal[0] * normal[0]
+                                + normal[1] * normal[1]
+                                + normal[2] * normal[2])
+                                .sqrt();
+                            if len > 0.0 {
+                                normals.push(normal[0] / len);
+                                normals.push(normal[1] / len);
+                                normals.push(normal[2] / len);
+                            } else {
+                                normals.extend_from_slice(&[0.0, 0.0, 1.0]);
+                            }
+                        }
+                    }
+
+                    // Add UVs
+                    for &tvertex_idx in &face.tvertices {
+                        if tvertex_idx < mesh.tvertices.len() {
+                            uvs.extend_from_slice(&mesh.tvertices[tvertex_idx]);
+                        } else {
+                            // Default UV if missing
+                            uvs.extend_from_slice(&[0.0, 0.0]);
+                        }
+                    }
+                }
+
+                // Determine material key based on whether we have textures
+                let material_key = if !uvs.is_empty()
+                    && geom_obj.material_ref.is_some()
+                    && geom_obj.material_ref.unwrap() < ase.materials.len()
+                {
+                    let mat = &ase.materials[geom_obj.material_ref.unwrap()];
+                    if mat.map_diffuse.is_some() {
+                        MaterialKey::Textured(material_id as u16)
+                    } else {
+                        // Use material color as flat shading
+                        MaterialKey::Flat(material_id as u16)
+                    }
+                } else {
+                    MaterialKey::Flat(material_id as u16)
+                };
+
+                primitives.push(MeshPrimitive {
+                    material_key,
+                    indices,
+                    normals,
+                    uvs: if uvs.is_empty() { None } else { Some(uvs) },
+                });
+            }
+
+            position_offset += mesh.vertices.len();
+        }
+
+        if primitives.is_empty() {
+            return Err(AssetError::InvalidFormat(
+                "No valid geometry found in ASE file".to_string(),
+            ));
+        }
+
+        Ok(GeometryData {
+            positions: all_positions,
+            primitives,
+        })
+    }
+
+    /// Extract texture filenames from ASE materials.
+    #[cfg(feature = "hires-assets")]
+    fn extract_ase_textures(&self, ase: &crate::ase::AseFile) -> Result<HashMap<u16, String>> {
+        let mut textures = HashMap::new();
+
+        for (idx, material) in ase.materials.iter().enumerate() {
+            if let Some(ref map) = material.map_diffuse {
+                // Extract just the filename from the bitmap path
+                let filename = std::path::Path::new(&map.bitmap)
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .unwrap_or(&map.bitmap)
+                    .to_string();
+                textures.insert(idx as u16, filename);
+            }
+        }
+
+        Ok(textures)
     }
 
     /// Extract geometry data from POF model, grouped by material.

@@ -1,0 +1,17 @@
+[package]
+name = "ase2glb"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Convert D2X-XL ASE models to glTF/GLB format"
+
+[[bin]]
+name = "ase2glb"
+path = "src/main.rs"
+
+[dependencies]
+descent-core = { path = "../../descent-core", features = ["hires-assets"] }
+clap = { workspace = true }
+anyhow = { workspace = true }
