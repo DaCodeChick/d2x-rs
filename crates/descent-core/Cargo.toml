@@ -65,4 +65,5 @@ video = ["dep:ffmpeg-next"]
 [dependencies.ffmpeg-next]
 version = "8.0"
 optional = true
-features = ["build"]  # Statically link FFmpeg
+default-features = false
+features = ["codec", "format"]  # Use system FFmpeg libraries

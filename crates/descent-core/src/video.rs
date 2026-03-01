@@ -1,13 +1,19 @@
 //! Video conversion module for MVE cutscene files.
 //!
 //! This module handles conversion of Descent's MVE (Interplay Movie) files to modern
-//! MP4/H.264 format. The conversion uses FFmpeg's native MVE demuxer (`ipmovie`),
-//! statically linked via the `ffmpeg-next` crate with the `build` feature.
+//! MP4/H.264 format. The conversion uses FFmpeg's native MVE demuxer (`ipmovie`).
 //!
 //! # Feature Gate
 //!
 //! This module is only available when the `video` feature is enabled. This allows
-//! builds without video support to avoid the large FFmpeg dependency.
+//! builds without video support to avoid the FFmpeg dependency.
+//!
+//! # Requirements
+//!
+//! Requires FFmpeg libraries to be installed on the system:
+//! - **Linux**: `sudo apt install libavcodec-dev libavformat-dev libavutil-dev`
+//! - **macOS**: `brew install ffmpeg`
+//! - **Windows**: Download FFmpeg shared libraries or use vcpkg
 //!
 //! # Usage
 //!
