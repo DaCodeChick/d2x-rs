@@ -18,15 +18,11 @@
 //! converter.convert_mve("intro.mve", "output/intro.mp4")?;
 //! ```
 
-#[cfg(feature = "cutscenes")]
 use anyhow::{Context, Result};
-#[cfg(feature = "cutscenes")]
 use std::path::Path;
-#[cfg(feature = "cutscenes")]
 use tracing::{debug, info, warn};
 
 /// Video converter for MVE files.
-#[cfg(feature = "cutscenes")]
 pub struct VideoConverter {
     /// Quality setting (CRF value, 0-51, lower = better quality)
     pub quality: u8,
@@ -36,7 +32,6 @@ pub struct VideoConverter {
     pub video_bitrate: u32,
 }
 
-#[cfg(feature = "cutscenes")]
 impl Default for VideoConverter {
     fn default() -> Self {
         Self {
@@ -47,7 +42,6 @@ impl Default for VideoConverter {
     }
 }
 
-#[cfg(feature = "cutscenes")]
 impl VideoConverter {
     /// Create a new video converter with default settings.
     pub const fn new() -> Self {
@@ -293,7 +287,6 @@ impl VideoConverter {
     }
 
     /// Receive encoded video packets and write to output.
-    #[cfg(feature = "cutscenes")]
     fn receive_and_write_video_packets(
         &self,
         encoder: &mut ffmpeg_next::encoder::video::Video,
@@ -311,7 +304,6 @@ impl VideoConverter {
     }
 
     /// Receive encoded audio packets and write to output.
-    #[cfg(feature = "cutscenes")]
     fn receive_and_write_audio_packets(
         &self,
         encoder: &mut ffmpeg_next::encoder::audio::Audio,
@@ -329,7 +321,6 @@ impl VideoConverter {
     }
 
     /// Create H.264 video encoder.
-    #[cfg(feature = "cutscenes")]
     fn create_video_encoder(
         &self,
         decoder: &ffmpeg_next::decoder::Video,
@@ -366,7 +357,6 @@ impl VideoConverter {
     }
 
     /// Create AAC audio encoder.
-    #[cfg(feature = "cutscenes")]
     fn create_audio_encoder(
         &self,
         decoder: &ffmpeg_next::decoder::Audio,
