@@ -24,8 +24,6 @@ add_library(dle_core STATIC
     # I/O
     io/LevelReader.h
     io/LevelReader.cpp
-    io/DhfArchive.h
-    io/DhfArchive.cpp
 )
 
 target_include_directories(dle_core PUBLIC
