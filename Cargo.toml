@@ -5,6 +5,8 @@ members = [
     "crates/d2x-client",
     "crates/tools/pof2glb",
     "crates/tools/ase2glb",
+    "crates/tools/dhfextract",
+    "crates/tools/pcx2tga",
 ]
 resolver = "2"
 

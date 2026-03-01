@@ -1,0 +1,16 @@
+[package]
+name = "dhfextract"
+version = "0.1.0"
+edition = "2024"
+authors = ["d2x-rs contributors"]
+description = "CLI tool to extract files from Descent DHF/HOG archives"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "dhfextract"
+path = "src/main.rs"
+
+[dependencies]
+descent-core = { path = "../../descent-core" }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"

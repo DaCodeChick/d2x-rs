@@ -1,0 +1,16 @@
+[package]
+name = "pcx2tga"
+version = "0.1.0"
+edition = "2024"
+authors = ["d2x-rs contributors"]
+description = "CLI tool to convert PCX images to TGA format"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "pcx2tga"
+path = "src/main.rs"
+
+[dependencies]
+descent-core = { path = "../../descent-core" }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1.0"
