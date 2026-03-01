@@ -11,7 +11,7 @@
 //! 3. **Extract**: Read HOG/DHF archives and MVL video archives
 //! 4. **Convert**:
 //!    - HMP → MIDI (Descent music format to standard MIDI)
-//!    - PIG → PNG (indexed textures to true color)
+//!    - PIG → TGA (indexed textures to true color)
 //!    - POF → GLB (Descent models to glTF binary)
 //!    - PCM → WAV (8-bit sound effects to 16-bit)
 //!    - MVE → MP4 (Interplay videos to H.264 using FFmpeg)
@@ -40,7 +40,7 @@
 //! ```text
 //! assets/
 //! ├── music/          # MIDI files (from HMP)
-//! ├── textures/       # PNG files (from PIG)
+//! ├── textures/       # TGA files (from PIG)
 //! ├── models/         # GLB files (from POF)
 //! ├── sounds/         # WAV files (from PCM)
 //! ├── videos/         # MP4 files (from MVE)

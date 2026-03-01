@@ -1,7 +1,7 @@
 //! Format converters for converting Descent legacy formats to modern formats.
 //!
 //! This module provides converters for:
-//! - **Textures**: PIG (8-bit indexed) and OGF (D3 textures) → PNG, WebP
+//! - **Textures**: PIG (8-bit indexed) and OGF (D3 textures) → TGA
 //! - **Models**: POF → glTF 2.0 / GLB
 //! - **Levels**: RDL/RL2 → glTF scenes
 //! - **Audio**: PCM → WAV, HMP → MIDI
@@ -9,7 +9,7 @@
 //!
 //! # Examples
 //!
-//! ## Converting PIG Textures to PNG
+//! ## Converting PIG Textures to TGA
 //!
 //! ```no_run
 //! use descent_core::pig::PigFile;
@@ -24,10 +24,10 @@
 //! let palette_data = fs::read("groupa.256").unwrap();
 //! let palette = Palette::parse(&palette_data).unwrap();
 //!
-//! // Convert a texture to PNG
+//! // Convert a texture to TGA
 //! let converter = TextureConverter::new(&palette);
-//! let png_data = converter.pig_to_png(&pig, "wall01-0").unwrap();
-//! fs::write("wall01-0.png", png_data).unwrap();
+//! let tga_data = converter.pig_to_tga(&pig, "wall01-0").unwrap();
+//! fs::write("wall01-0.tga", tga_data).unwrap();
 //! ```
 //!
 //! ## Converting POF Models to GLB

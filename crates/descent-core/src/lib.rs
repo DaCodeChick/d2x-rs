@@ -82,10 +82,10 @@
 //! let palette_data = std::fs::read("groupa.256")?;
 //! let palette = Palette::parse(&palette_data)?;
 //!
-//! // Convert texture to PNG
+//! // Convert texture to TGA
 //! let converter = TextureConverter::new(&palette);
-//! let png = converter.pig_to_png(&pig, "wall01-0")?;
-//! std::fs::write("wall01-0.png", png)?;
+//! let tga = converter.pig_to_tga(&pig, "wall01-0")?;
+//! std::fs::write("wall01-0.tga", tga)?;
 //! ```
 
 pub mod converters;

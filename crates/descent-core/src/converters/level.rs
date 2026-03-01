@@ -67,7 +67,7 @@ use std::io::Write;
 /// Provides texture data for level conversion.
 ///
 /// This struct holds a PIG file, palette, and HAM file for converting
-/// indexed textures to modern formats (PNG) and mapping texture IDs during GLB export.
+/// indexed textures to modern formats (TGA) and mapping texture IDs during GLB export.
 pub struct LevelTextureProvider {
     pig: PigFile,
     palette: Palette,
@@ -260,7 +260,7 @@ impl LevelConverter {
         segment.children[side_idx] == -1
     }
 
-    /// Convert texture IDs to PNG data URIs.
+    /// Convert texture IDs to TGA data URIs.
     fn convert_textures_to_data_uris(
         &self,
         texture_ids: &HashSet<u16>,
@@ -280,7 +280,7 @@ impl LevelConverter {
         Ok(texture_images)
     }
 
-    /// Convert a single texture ID to a PNG data URI.
+    /// Convert a single texture ID to a TGA data URI.
     fn convert_single_texture(
         &self,
         texture_id: u16,
@@ -289,12 +289,12 @@ impl LevelConverter {
     ) -> Option<String> {
         let bitmap_index = provider.ham().lookup_texture(texture_id as usize)?;
         let bitmap_header = provider.pig().get_by_index(bitmap_index as usize)?;
-        let png_data = converter
-            .pig_to_png(provider.pig(), &bitmap_header.name)
+        let tga_data = converter
+            .pig_to_tga(provider.pig(), &bitmap_header.name)
             .ok()?;
 
-        let base64_data = general_purpose::STANDARD.encode(&png_data);
-        Some(format!("data:image/png;base64,{}", base64_data))
+        let base64_data = general_purpose::STANDARD.encode(&tga_data);
+        Some(format!("data:image/tga;base64,{}", base64_data))
     }
 
     /// Build geometry data from level segments.

@@ -23,7 +23,7 @@ winnow = { workspace = true }
 glam = { workspace = true }
 
 # Image processing
-image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+image = { version = "0.25", default-features = false, features = ["tga"] }
 
 # 3D model formats
 gltf-json = { version = "1.4", features = ["names"] }

@@ -4,7 +4,7 @@
 //! - **PIG**: Descent 1/2 8-bit indexed textures (RLE compressed)
 //! - **OGF**: Descent 3 textures (RGB565, RGBA4444, RGBA8888)
 //!
-//! Both formats can be converted to modern formats like PNG or WebP.
+//! Both formats are converted to TGA format.
 //!
 //! # Examples
 //!
@@ -24,9 +24,9 @@
 //!
 //! let converter = TextureConverter::new(&palette);
 //!
-//! // Convert to PNG
-//! let png = converter.pig_to_image(&pig, "wall01-0", ImageFormat::Png).unwrap();
-//! fs::write("wall01-0.png", png).unwrap();
+//! // Convert to TGA
+//! let tga = converter.pig_to_image(&pig, "wall01-0", ImageFormat::Tga).unwrap();
+//! fs::write("wall01-0.tga", tga).unwrap();
 //! ```
 //!
 //! ## Converting OGF Textures (D3)
@@ -41,9 +41,9 @@
 //!
 //! let converter = TextureConverter::default();
 //!
-//! // Convert to PNG
-//! let png = converter.ogf_to_image(&texture, ImageFormat::Png).unwrap();
-//! fs::write("texture.png", png).unwrap();
+//! // Convert to TGA
+//! let tga = converter.ogf_to_image(&texture, ImageFormat::Tga).unwrap();
+//! fs::write("texture.tga", tga).unwrap();
 //! ```
 
 use crate::ogf::OgfTexture;
@@ -72,26 +72,22 @@ pub enum TextureConvertError {
 /// Output image format for texture conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImageFormat {
-    /// PNG format (lossless, good compression).
-    Png,
-    /// WebP format (lossy or lossless, better compression than PNG).
-    WebP,
+    /// TGA format (uncompressed, optimized for game dev, no licensing concerns).
+    Tga,
 }
 
 impl ImageFormat {
     /// Convert to image crate's ImageFormat.
     fn to_image_format(self) -> ImgFormat {
         match self {
-            ImageFormat::Png => ImgFormat::Png,
-            ImageFormat::WebP => ImgFormat::WebP,
+            ImageFormat::Tga => ImgFormat::Tga,
         }
     }
 
     /// Get file extension for this format.
     pub const fn extension(self) -> &'static str {
         match self {
-            ImageFormat::Png => "png",
-            ImageFormat::WebP => "webp",
+            ImageFormat::Tga => "tga",
         }
     }
 }
@@ -166,26 +162,15 @@ impl<'a> TextureConverter<'a> {
         self.encode_image(&img, format)
     }
 
-    /// Convert a PIG texture to PNG format.
+    /// Convert a PIG texture to TGA format.
     ///
-    /// Convenience method for `pig_to_image(pig, name, ImageFormat::Png)`.
-    pub fn pig_to_png(
+    /// Convenience method for `pig_to_image(pig, name, ImageFormat::Tga)`.
+    pub fn pig_to_tga(
         &self,
         pig: &PigFile,
         texture_name: &str,
     ) -> std::result::Result<Vec<u8>, TextureConvertError> {
-        self.pig_to_image(pig, texture_name, ImageFormat::Png)
-    }
-
-    /// Convert a PIG texture to WebP format.
-    ///
-    /// Convenience method for `pig_to_image(pig, name, ImageFormat::WebP)`.
-    pub fn pig_to_webp(
-        &self,
-        pig: &PigFile,
-        texture_name: &str,
-    ) -> std::result::Result<Vec<u8>, TextureConvertError> {
-        self.pig_to_image(pig, texture_name, ImageFormat::WebP)
+        self.pig_to_image(pig, texture_name, ImageFormat::Tga)
     }
 
     /// Convert an OGF texture to the specified image format.
@@ -217,24 +202,14 @@ impl<'a> TextureConverter<'a> {
         self.encode_image(&img, format)
     }
 
-    /// Convert an OGF texture to PNG format.
+    /// Convert an OGF texture to TGA format.
     ///
-    /// Convenience method for `ogf_to_image(texture, ImageFormat::Png)`.
-    pub fn ogf_to_png(
+    /// Convenience method for `ogf_to_image(texture, ImageFormat::Tga)`.
+    pub fn ogf_to_tga(
         &self,
         texture: &OgfTexture,
     ) -> std::result::Result<Vec<u8>, TextureConvertError> {
-        self.ogf_to_image(texture, ImageFormat::Png)
-    }
-
-    /// Convert an OGF texture to WebP format.
-    ///
-    /// Convenience method for `ogf_to_image(texture, ImageFormat::WebP)`.
-    pub fn ogf_to_webp(
-        &self,
-        texture: &OgfTexture,
-    ) -> std::result::Result<Vec<u8>, TextureConvertError> {
-        self.ogf_to_image(texture, ImageFormat::WebP)
+        self.ogf_to_image(texture, ImageFormat::Tga)
     }
 
     /// Encode an RGBA image to the specified format.
@@ -288,8 +263,7 @@ mod tests {
 
     #[test]
     fn test_image_format_extension() {
-        assert_eq!(ImageFormat::Png.extension(), "png");
-        assert_eq!(ImageFormat::WebP.extension(), "webp");
+        assert_eq!(ImageFormat::Tga.extension(), "tga");
     }
 
     #[test]

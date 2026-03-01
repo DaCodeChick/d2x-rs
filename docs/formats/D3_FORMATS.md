@@ -323,7 +323,7 @@ D3 reuses the MVE format from D1/D2 for cinematics.
 ### Test Coverage
 - Format detection (HOG2 vs DHF)
 - File extraction from HOG2
-- Texture format conversion (OGF → PNG)
+- Texture format conversion (OGF → TGA)
 - Level geometry parsing (D3L)
 - Model loading (OOF)
 

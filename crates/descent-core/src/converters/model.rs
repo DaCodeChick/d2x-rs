@@ -64,7 +64,7 @@ use std::io::Write;
 /// Provides texture data for model conversion.
 ///
 /// This struct holds a PIG file, palette, and HAM file for converting
-/// indexed textures to modern formats (PNG) and mapping texture IDs during GLB export.
+/// indexed textures to modern formats (TGA) and mapping texture IDs during GLB export.
 pub struct TextureProvider {
     pig: PigFile,
     palette: Palette,
@@ -396,13 +396,13 @@ impl ModelConverter {
         }
     }
 
-    /// Extract and convert textures from PIG file to PNG format.
+    /// Extract and convert textures from PIG file to TGA format.
     ///
-    /// Returns a map of texture_id -> PNG image data (base64 encoded data URI).
+    /// Returns a map of texture_id -> TGA image data (base64 encoded data URI).
     ///
     /// Extract and convert textures from POF model.
     ///
-    /// Maps POF texture IDs to PIG bitmap names via HAM file, then converts to PNG data URIs.
+    /// Maps POF texture IDs to PIG bitmap names via HAM file, then converts to TGA data URIs.
     ///
     /// # Texture Mapping Process
     ///
@@ -411,8 +411,8 @@ impl ModelConverter {
     ///    - Look up: `ham.obj_bitmap_pointers[first_texture + texture_id]` → bitmap_index
     ///    - Then: `ham.obj_bitmap_indices[bitmap_index].index` → PIG bitmap index
     /// 3. Find PIG bitmap name by iterating `pig.headers()` and matching index
-    /// 4. Load bitmap from PIG and convert to PNG
-    /// 5. Encode PNG as base64 data URI
+    /// 4. Load bitmap from PIG and convert to TGA
+    /// 5. Encode TGA as base64 data URI
     ///
     /// Returns: HashMap<texture_id, data_uri>
     fn extract_textures(
@@ -471,16 +471,16 @@ impl ModelConverter {
                     ))
                 })?;
 
-            // Convert to PNG
-            let png_data = converter
-                .pig_to_png(&provider.pig, &bitmap_header.name)
+            // Convert to TGA
+            let tga_data = converter
+                .pig_to_tga(&provider.pig, &bitmap_header.name)
                 .map_err(|e| {
                     AssetError::InvalidFormat(format!("Failed to convert texture: {}", e))
                 })?;
 
             // Encode as base64 data URI
-            let base64_data = base64::engine::general_purpose::STANDARD.encode(&png_data);
-            let data_uri = format!("data:image/png;base64,{}", base64_data);
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&tga_data);
+            let data_uri = format!("data:image/tga;base64,{}", base64_data);
 
             textures.insert(texture_id, data_uri);
         }
@@ -744,7 +744,7 @@ impl ModelConverter {
             let image_index = images.len();
             images.push(json::Image {
                 uri: Some(data_uri.clone()),
-                mime_type: Some(json::image::MimeType("image/png".to_string())),
+                mime_type: Some(json::image::MimeType("image/tga".to_string())),
                 buffer_view: None,
                 name: Some(format!("{} - Texture {}", name, texture_id)),
                 extensions: None,

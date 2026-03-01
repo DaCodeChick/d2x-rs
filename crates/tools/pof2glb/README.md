@@ -5,7 +5,7 @@ A command-line tool to convert Descent POF (Parallax Object Format) models to gl
 ## Features
 
 - Converts POF models to industry-standard GLB format
-- Embeds textures as PNG images with base64 data URIs
+- Embeds textures as TGA images with base64 data URIs
 - Supports both Descent 1 and Descent 2 formats
 - Preserves UV mapping and materials (flat + textured)
 - Proper texture lookup through HAM → PIG pipeline
@@ -52,9 +52,9 @@ The tool generates GLB files with:
 - **Geometry**: Triangulated meshes with positions and normals
 - **Materials**: PBR materials with:
   - Flat materials: Palette colors as base color
-  - Textured materials: PNG textures as base color maps
+  - Textured materials: TGA textures as base color maps
   - Metallic factor: 0.0, Roughness factor: 1.0 (matte finish)
-- **Textures**: Embedded as PNG with base64 data URIs
+- **Textures**: Embedded as TGA with base64 data URIs
 - **Naming**: All glTF structures (buffers, meshes, materials, etc.) have descriptive names
 
 ## File Requirements
