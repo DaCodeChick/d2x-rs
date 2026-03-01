@@ -462,7 +462,7 @@ mod tests {
         data[0x308..0x30C].copy_from_slice(&0u32.to_le_bytes()); // skip
         data[0x30C..0x310].copy_from_slice(&50u32.to_le_bytes()); // length (50 bytes total, 38 data)
         data[0x310..0x314].copy_from_slice(&0u32.to_le_bytes()); // skip
-        // 38 bytes of track data (50 - 12 = 38)
+                                                                 // 38 bytes of track data (50 - 12 = 38)
 
         // Track 2 starts after track 1 data (0x314 + 38 = 0x33A)
         let track2_start = 0x314 + 38;
