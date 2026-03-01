@@ -52,6 +52,8 @@ private slots:
     void onViewLighting();
     void onToggleTexturePalette();
     void onToggleTextureBar();
+    void onToggleProperties();
+    void onToggleSegmentInfo();
     
     // Help menu
     void onHelpAbout();

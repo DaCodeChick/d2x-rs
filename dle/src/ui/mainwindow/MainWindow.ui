@@ -13,6 +13,11 @@
   <property name="windowTitle">
    <string>DLE - Descent Level Editor</string>
   </property>
+  <property name="dockOptions">
+   <set>QMainWindow::AllowNestedDocks|QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks</set>
+  </property>
+  
+  <!-- Central widget is just the 3D viewport -->
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <property name="spacing">
@@ -31,132 +36,19 @@
      <number>0</number>
     </property>
     <item>
-     <!-- Main content area with left panel and viewport -->
-     <widget class="QWidget" name="mainContentWidget">
-      <layout class="QHBoxLayout" name="mainHorizontalLayout">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="leftMargin">
-        <number>0</number>
-       </property>
-       <property name="topMargin">
-        <number>0</number>
-       </property>
-       <property name="rightMargin">
-        <number>0</number>
-       </property>
-       <property name="bottomMargin">
-        <number>0</number>
-       </property>
-       <item>
-        <!-- Left texture palette panel -->
-        <widget class="QScrollArea" name="texturePaletteScrollArea">
-         <property name="minimumSize">
-          <size>
-           <width>140</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>140</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <widget class="QWidget" name="texturePaletteContent">
-          <layout class="QGridLayout" name="texturePaletteGrid">
-           <property name="spacing">
-            <number>2</number>
-           </property>
-           <item row="0" column="0">
-            <widget class="QLabel" name="texturePlaceholder">
-             <property name="text">
-              <string>Texture
-Palette
-
-(TODO: Load
-textures from
-.PIG files)</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
-       <item>
-        <!-- Main 3D viewport -->
-        <widget class="dle::LevelViewport" name="viewport">
-         <property name="minimumSize">
-          <size>
-           <width>640</width>
-           <height>480</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
-     <!-- Bottom texture bar -->
-     <widget class="QScrollArea" name="textureBarScrollArea">
+     <widget class="dle::LevelViewport" name="viewport">
       <property name="minimumSize">
        <size>
-        <width>0</width>
-        <height>80</height>
+        <width>640</width>
+        <height>480</height>
        </size>
       </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>80</height>
-       </size>
-      </property>
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::Box</enum>
-      </property>
-      <property name="horizontalScrollBarPolicy">
-       <enum>Qt::ScrollBarAlwaysOn</enum>
-      </property>
-      <property name="verticalScrollBarPolicy">
-       <enum>Qt::ScrollBarAlwaysOff</enum>
-      </property>
-      <widget class="QWidget" name="textureBarContent">
-       <layout class="QHBoxLayout" name="textureBarLayout">
-        <property name="spacing">
-         <number>2</number>
-        </property>
-        <item>
-         <widget class="QLabel" name="textureBarPlaceholder">
-          <property name="text">
-           <string>  Bottom Texture Bar (TODO: Load texture thumbnails)  </string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
      </widget>
     </item>
    </layout>
   </widget>
   
+  <!-- Menu Bar -->
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -197,8 +89,16 @@ textures from
     <addaction name="actionTextured"/>
     <addaction name="actionLighting"/>
     <addaction name="separator"/>
-    <addaction name="actionToggleTexturePalette"/>
-    <addaction name="actionToggleTextureBar"/>
+    <widget class="QMenu" name="menuPanels">
+     <property name="title">
+      <string>&amp;Panels</string>
+     </property>
+     <addaction name="actionToggleTexturePalette"/>
+     <addaction name="actionToggleTextureBar"/>
+     <addaction name="actionToggleProperties"/>
+     <addaction name="actionToggleSegmentInfo"/>
+    </widget>
+    <addaction name="menuPanels"/>
    </widget>
    <widget class="QMenu" name="menuSelect">
     <property name="title">
@@ -236,6 +136,7 @@ textures from
    <addaction name="menuHelp"/>
   </widget>
   
+  <!-- Toolbar -->
   <widget class="QToolBar" name="mainToolBar">
    <property name="windowTitle">
     <string>Tools</string>
@@ -260,7 +161,216 @@ textures from
    <addaction name="actionTextured"/>
   </widget>
   
+  <!-- Status Bar -->
   <widget class="QStatusBar" name="statusbar"/>
+  
+  <!-- Dock Widgets -->
+  
+  <!-- Left: Texture Palette Dock -->
+  <widget class="QDockWidget" name="texturePaletteDock">
+   <property name="windowTitle">
+    <string>Texture Palette</string>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="texturePaletteContent">
+    <layout class="QVBoxLayout" name="texturePaletteLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QScrollArea" name="texturePaletteScrollArea">
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <widget class="QWidget" name="texturePaletteWidget">
+        <layout class="QVBoxLayout" name="texturePaletteWidgetLayout">
+         <item>
+          <widget class="QLabel" name="texturePlaceholder">
+           <property name="text">
+            <string>Texture Palette
+
+(TODO: Load textures
+from .PIG files)</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  
+  <!-- Bottom: Texture Bar Dock -->
+  <widget class="QDockWidget" name="textureBarDock">
+   <property name="windowTitle">
+    <string>Texture Bar</string>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="textureBarContent">
+    <layout class="QVBoxLayout" name="textureBarLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QScrollArea" name="textureBarScrollArea">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>80</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>80</height>
+        </size>
+       </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
+       <property name="horizontalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOn</enum>
+       </property>
+       <property name="verticalScrollBarPolicy">
+        <enum>Qt::ScrollBarAlwaysOff</enum>
+       </property>
+       <widget class="QWidget" name="textureBarWidget">
+        <layout class="QHBoxLayout" name="textureBarWidgetLayout">
+         <item>
+          <widget class="QLabel" name="textureBarPlaceholder">
+           <property name="text">
+            <string>  Texture Bar (TODO: Load texture thumbnails)  </string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  
+  <!-- Right: Properties Dock -->
+  <widget class="QDockWidget" name="propertiesDock">
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+   <property name="windowTitle">
+    <string>Properties</string>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="propertiesContent">
+    <layout class="QVBoxLayout" name="propertiesLayout">
+     <item>
+      <widget class="QLabel" name="propertiesPlaceholder">
+       <property name="text">
+        <string>Properties Panel
+
+Context-sensitive properties
+will appear here based on
+current selection.</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignTop|Qt::AlignLeft</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  
+  <!-- Right: Segment Info Dock -->
+  <widget class="QDockWidget" name="segmentInfoDock">
+   <property name="visible">
+    <bool>false</bool>
+   </property>
+   <property name="windowTitle">
+    <string>Segment Info</string>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="segmentInfoContent">
+    <layout class="QVBoxLayout" name="segmentInfoLayout">
+     <item>
+      <widget class="QLabel" name="segmentInfoPlaceholder">
+       <property name="text">
+        <string>Segment Information
+
+Shows details about
+selected segment:
+- Vertex IDs
+- Connections
+- Function
+- Lighting</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignTop|Qt::AlignLeft</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  
+  <!-- Actions -->
   
   <!-- File Actions -->
   <action name="actionNew">
@@ -412,6 +522,8 @@ textures from
     <string>F3</string>
    </property>
   </action>
+  
+  <!-- Panel Toggle Actions -->
   <action name="actionToggleTexturePalette">
    <property name="checkable">
     <bool>true</bool>
@@ -438,6 +550,34 @@ textures from
    </property>
    <property name="toolTip">
     <string>Show/hide bottom texture bar</string>
+   </property>
+  </action>
+  <action name="actionToggleProperties">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Properties</string>
+   </property>
+   <property name="toolTip">
+    <string>Show/hide properties panel</string>
+   </property>
+  </action>
+  <action name="actionToggleSegmentInfo">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Segment Info</string>
+   </property>
+   <property name="toolTip">
+    <string>Show/hide segment info panel</string>
    </property>
   </action>
   

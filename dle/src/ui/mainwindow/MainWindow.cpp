@@ -42,6 +42,8 @@ void MainWindow::setupConnections() {
     connect(ui->actionLighting, &QAction::triggered, this, &MainWindow::onViewLighting);
     connect(ui->actionToggleTexturePalette, &QAction::triggered, this, &MainWindow::onToggleTexturePalette);
     connect(ui->actionToggleTextureBar, &QAction::triggered, this, &MainWindow::onToggleTextureBar);
+    connect(ui->actionToggleProperties, &QAction::triggered, this, &MainWindow::onToggleProperties);
+    connect(ui->actionToggleSegmentInfo, &QAction::triggered, this, &MainWindow::onToggleSegmentInfo);
     
     // Help menu
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onHelpAbout);
@@ -245,14 +247,26 @@ void MainWindow::onHelpAbout() {
 
 void MainWindow::onToggleTexturePalette() {
     bool visible = ui->actionToggleTexturePalette->isChecked();
-    ui->texturePaletteScrollArea->setVisible(visible);
+    ui->texturePaletteDock->setVisible(visible);
     ui->statusbar->showMessage(visible ? "Texture palette shown" : "Texture palette hidden", 2000);
 }
 
 void MainWindow::onToggleTextureBar() {
     bool visible = ui->actionToggleTextureBar->isChecked();
-    ui->textureBarScrollArea->setVisible(visible);
+    ui->textureBarDock->setVisible(visible);
     ui->statusbar->showMessage(visible ? "Texture bar shown" : "Texture bar hidden", 2000);
+}
+
+void MainWindow::onToggleProperties() {
+    bool visible = ui->actionToggleProperties->isChecked();
+    ui->propertiesDock->setVisible(visible);
+    ui->statusbar->showMessage(visible ? "Properties panel shown" : "Properties panel hidden", 2000);
+}
+
+void MainWindow::onToggleSegmentInfo() {
+    bool visible = ui->actionToggleSegmentInfo->isChecked();
+    ui->segmentInfoDock->setVisible(visible);
+    ui->statusbar->showMessage(visible ? "Segment info shown" : "Segment info hidden", 2000);
 }
 
 } // namespace dle
