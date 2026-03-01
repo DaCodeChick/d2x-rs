@@ -88,6 +88,7 @@
 //! std::fs::write("wall01-0.png", png)?;
 //! ```
 
+pub mod ase;
 pub mod converters;
 pub mod dhf;
 pub mod error;
@@ -107,11 +108,13 @@ pub mod pig;
 pub mod player;
 pub mod pof;
 pub mod sound;
+pub mod tga;
 pub mod validation;
 
 #[cfg(feature = "video")]
 pub mod video;
 
+pub use ase::{AseFile, AseGeomObject, AseMaterial, AseMesh};
 pub use dhf::{DhfArchive, DhfEntry};
 pub use error::{AssetError, Result};
 pub use fixed_point::Fix;
@@ -134,6 +137,7 @@ pub use pof::{
     TexturedPolygon,
 };
 pub use sound::{HmpFile, HmpTrack, SoundData, SoundHeader};
+pub use tga::TgaImage;
 
 #[cfg(feature = "video")]
 pub use video::VideoConverter;
