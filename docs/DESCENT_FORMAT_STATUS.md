@@ -25,6 +25,9 @@ This document tracks which Descent file formats are implemented and which are ne
 - **RDL/RL2** - Level geometry (segment-based) - `level.rs`
 - **HAM** - Game data definitions (robots, weapons, physics) - `ham.rs`
 
+### Game Data
+- **HXM** - Custom robot/model archive for Vertigo/D2X-XL - `hxm.rs`
+
 ### Other
 - **MSN/MN2/MN3** - Mission files - `mission.rs`
 - **PLR/PLX** - Player profiles - `player.rs`
@@ -35,35 +38,10 @@ This document tracks which Descent file formats are implemented and which are ne
 
 ### Critical for Level Editor
 
-#### HXM Archive Format (HIGH PRIORITY)
+#### BBM Archive Format (MEDIUM PRIORITY)
 **Status**: Not implemented
-**Description**: HXM (HaMster eXtended/Mod) is an archive format for custom robot/model data
-**Used by**: Descent 2 Vertigo expansion, D2X-XL custom content
-**Format Structure**:
-```
-Offset  Size  Description
-------  ----  -----------
-0x00    4     Signature: "HMX!" (0x21584D48)
-0x04    4     Version (0x00000001)
-0x08    4     Number of custom robots (n)
-0x0C    ...   Robot data blocks:
-              - Robot index (4 bytes)
-              - Robot info struct (variable size)
-0x??    ...   Extra data (custom models, textures, etc.)
-```
-**Purpose**: Stores custom robot definitions and model data that override HAM file entries
-**Implementation needs**:
-- Parser for HXM header
-- Robot info struct reader (similar to HAM)
-- Custom model data extractor
-- Integration with HAM for override logic
-
-**Reference**: `/home/admin/Downloads/dle-src/RobotManager.cpp` lines with `ReadHXM`/`WriteHXM`
-
-#### BBM - Briefing Bitmap Format (MEDIUM PRIORITY)
-**Status**: Not implemented
-**Description**: IFF-based bitmap format used for Descent briefing screens
-**Used by**: Descent 1/2 briefings (alternative to PCX)
+**Description**: BBM (IFF ILBM format) briefing bitmaps
+**Used by**: Alternative to PCX for briefing screens in some missions
 **Format**: IFF ILBM (Interleaved Bitmap)
 **Purpose**: Displays images during mission briefings
 **Implementation needs**:

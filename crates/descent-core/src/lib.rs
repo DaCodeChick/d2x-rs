@@ -10,6 +10,7 @@
 //! - **MVE**: Interplay movie format for cutscenes
 //! - **PIG**: Texture and bitmap data (RLE compressed, 8-bit indexed)
 //! - **HAM**: Game data definitions (robots, weapons, physics)
+//! - **HXM**: Custom robot/model data (Vertigo expansion, D2X-XL)
 //! - **Palette**: Color palettes for indexed bitmaps (6-bit RGB)
 //! - **RDL/RL2**: Level geometry and metadata (segment-based)
 //! - **POF**: 3D polygon models
@@ -95,6 +96,7 @@ pub mod fixed_point;
 pub mod geometry;
 pub mod ham;
 pub mod hog2;
+pub mod hxm;
 pub mod io;
 pub mod level;
 pub mod mission;
@@ -127,6 +129,7 @@ pub use fixed_point::Fix;
 pub use geometry::{FixVector, Uvl};
 pub use ham::{HamFile, RobotInfo, WeaponInfo};
 pub use hog2::{Hog2Archive, Hog2Entry};
+pub use hxm::HxmFile;
 pub use io::ReadExt;
 pub use level::{Level, Segment, Side};
 pub use mission::{MissionFile, SecretLevel};
