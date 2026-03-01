@@ -48,7 +48,17 @@ target_link_libraries(dle PRIVATE
     dle_ui
 )
 
+# DHF extraction utility
+add_executable(dhfextract
+    src/dhfextract.cpp
+)
+
+target_link_libraries(dhfextract PRIVATE
+    Qt6::Core
+    dle_core
+)
+
 # Install
-install(TARGETS dle
+install(TARGETS dle dhfextract
     RUNTIME DESTINATION bin
 )
