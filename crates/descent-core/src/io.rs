@@ -32,6 +32,18 @@ pub trait ReadExt {
     /// Read a 32-bit floating-point number (little-endian).
     fn read_f32_le(&mut self) -> Result<f32>;
 
+    /// Read a 16-bit unsigned integer (big-endian).
+    fn read_u16_be(&mut self) -> Result<u16>;
+
+    /// Read a 16-bit signed integer (big-endian).
+    fn read_i16_be(&mut self) -> Result<i16>;
+
+    /// Read a 32-bit unsigned integer (big-endian).
+    fn read_u32_be(&mut self) -> Result<u32>;
+
+    /// Read a 32-bit signed integer (big-endian).
+    fn read_i32_be(&mut self) -> Result<i32>;
+
     /// Read a fixed number of bytes into a vector.
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>>;
 
@@ -78,6 +90,30 @@ impl ReadExt for Cursor<&[u8]> {
         let mut buf = [0u8; 4];
         self.read_exact(&mut buf)?;
         Ok(f32::from_le_bytes(buf))
+    }
+
+    fn read_u16_be(&mut self) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_be_bytes(buf))
+    }
+
+    fn read_i16_be(&mut self) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+
+    fn read_u32_be(&mut self) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(u32::from_be_bytes(buf))
+    }
+
+    fn read_i32_be(&mut self) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(i32::from_be_bytes(buf))
     }
 
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {
@@ -131,6 +167,30 @@ impl ReadExt for Cursor<&Vec<u8>> {
         let mut buf = [0u8; 4];
         self.read_exact(&mut buf)?;
         Ok(f32::from_le_bytes(buf))
+    }
+
+    fn read_u16_be(&mut self) -> Result<u16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_be_bytes(buf))
+    }
+
+    fn read_i16_be(&mut self) -> Result<i16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+
+    fn read_u32_be(&mut self) -> Result<u32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(u32::from_be_bytes(buf))
+    }
+
+    fn read_i32_be(&mut self) -> Result<i32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(i32::from_be_bytes(buf))
     }
 
     fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>> {

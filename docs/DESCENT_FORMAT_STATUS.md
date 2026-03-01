@@ -13,6 +13,7 @@ This document tracks which Descent file formats are implemented and which are ne
 - **PIG** - Texture/bitmap data (8-bit indexed, RLE compressed) - `pig.rs`
 - **OGF** - Descent 3 Outrage Graphics Format - `ogf.rs`
 - **PCX** - PC Paintbrush briefing screens (8-bit indexed, 24-bit RGB) - `pcx.rs`
+- **IFF/BBM** - IFF ILBM/PBM Amiga briefing bitmaps - `iff.rs`
 - **TGA** - Targa image format - `tga.rs`
 - **Palette** - Color palettes (.256 files, 6-bit RGB) - `palette.rs`
 
@@ -35,22 +36,6 @@ This document tracks which Descent file formats are implemented and which are ne
 - **MVE** - Interplay movie format - `mve.rs`
 
 ## Missing Formats ❌
-
-### Critical for Level Editor
-
-#### BBM Archive Format (MEDIUM PRIORITY)
-**Status**: Not implemented
-**Description**: BBM (IFF ILBM format) briefing bitmaps
-**Used by**: Alternative to PCX for briefing screens in some missions
-**Format**: IFF ILBM (Interleaved Bitmap)
-**Purpose**: Displays images during mission briefings
-**Implementation needs**:
-- IFF chunk parser
-- ILBM bitmap decoder
-- Palette extraction
-- Convert to modern format (PNG/TGA)
-
-**Note**: PCX is already implemented and covers most briefing images, so BBM is lower priority
 
 ### Optional/Enhancement Formats
 
