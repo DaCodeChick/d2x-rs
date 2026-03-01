@@ -1,10 +1,11 @@
-//! Model format converters for POF and ASE formats.
+//! Model format converters for POF, ASE, and OOF formats.
 //!
 //! This module provides converters for Descent's 3D model formats:
 //! - **POF**: Descent 1/2 polygon-based models (ships, robots, powerups)
 //! - **ASE**: D2X-XL high-resolution models (3D Studio Max ASCII export)
+//! - **OOF**: Descent 3 Outrage object format models
 //!
-//! Both formats can be converted to glTF 2.0 / GLB format for use in modern engines.
+//! All formats can be converted to glTF 2.0 / GLB format for use in modern engines.
 //!
 //! # Examples
 //!
@@ -71,6 +72,7 @@
 
 use crate::error::{AssetError, Result};
 use crate::ham::HamFile;
+use crate::oof::OofModel;
 use crate::palette::Palette;
 use crate::pig::PigFile;
 use crate::pof::{PofModel, Polygon};
@@ -363,6 +365,92 @@ impl ModelConverter {
         Ok(glb)
     }
 
+    /// Convert an OOF (Descent 3) model to GLB (binary glTF 2.0) format.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The parsed OOF model
+    /// * `name` - Name for the model (e.g., "Pyro Ship")
+    ///
+    /// # Returns
+    ///
+    /// A Vec<u8> containing the complete GLB file
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use descent_core::oof::OofParser;
+    /// use descent_core::converters::model::ModelConverter;
+    ///
+    /// let oof_data = std::fs::read("pyro.oof").unwrap();
+    /// let model = OofParser::parse(&oof_data).unwrap();
+    ///
+    /// let converter = ModelConverter::new();
+    /// let glb = converter.oof_to_glb(&model, "Pyro Ship").unwrap();
+    /// std::fs::write("pyro.glb", glb).unwrap();
+    /// ```
+    pub fn oof_to_glb(&self, model: &OofModel, name: &str) -> Result<Vec<u8>> {
+        if model.subobjects.is_empty() {
+            return Err(AssetError::InvalidFormat(
+                "OOF model has no subobjects".to_string(),
+            ));
+        }
+
+        // Convert OOF geometry to glTF-compatible format
+        let geometry = self.extract_oof_geometry(model)?;
+
+        // Build binary buffer (vertex + index data)
+        let bin_buffer = self.build_binary_buffer(&geometry)?;
+
+        // Extract texture filenames from OOF
+        let texture_images = self.extract_oof_textures(model)?;
+
+        // Build glTF JSON structure
+        let root = self.build_gltf_json(
+            name,
+            &geometry,
+            &texture_images,
+            None, // No palette for OOF (uses texture files)
+            bin_buffer.len(),
+        )?;
+
+        // Serialize to JSON
+        let json_string = serde_json::to_string(&root).map_err(|e| {
+            AssetError::InvalidFormat(format!("Failed to serialize glTF JSON: {}", e))
+        })?;
+        let mut json_bytes = json_string.into_bytes();
+
+        // Pad JSON to 4-byte alignment with spaces (0x20)
+        let json_padding = (4 - (json_bytes.len() % 4)) % 4;
+        json_bytes.resize(json_bytes.len() + json_padding, 0x20);
+
+        // Pad binary buffer to 4-byte alignment with zeros (0x00)
+        let mut bin_buffer = bin_buffer;
+        let bin_padding = (4 - (bin_buffer.len() % 4)) % 4;
+        bin_buffer.resize(bin_buffer.len() + bin_padding, 0x00);
+
+        // Build GLB file
+        let total_length = 12 + 8 + json_bytes.len() + 8 + bin_buffer.len();
+        let mut glb = Vec::with_capacity(total_length);
+
+        // Write GLB header (12 bytes)
+        glb.write_all(&0x46546C67u32.to_le_bytes())?; // magic: "glTF"
+        glb.write_all(&2u32.to_le_bytes())?; // version: 2
+        glb.write_all(&(total_length as u32).to_le_bytes())?; // length
+
+        // Write JSON chunk (8 + json_bytes.len())
+        glb.write_all(&(json_bytes.len() as u32).to_le_bytes())?; // chunkLength
+        glb.write_all(&0x4E4F534Au32.to_le_bytes())?; // chunkType: "JSON"
+        glb.write_all(&json_bytes)?; // chunkData
+
+        // Write BIN chunk (8 + bin_buffer.len())
+        glb.write_all(&(bin_buffer.len() as u32).to_le_bytes())?; // chunkLength
+        glb.write_all(&0x004E4942u32.to_le_bytes())?; // chunkType: "BIN\0"
+        glb.write_all(&bin_buffer)?; // chunkData
+
+        Ok(glb)
+    }
+
     /// Extract geometry data from ASE model, grouped by material.
     #[cfg(feature = "hires-assets")]
     fn extract_ase_geometry(&self, ase: &crate::ase::AseFile) -> Result<GeometryData> {
@@ -510,6 +598,129 @@ impl ModelConverter {
                     .to_string();
                 textures.insert(idx as u16, filename);
             }
+        }
+
+        Ok(textures)
+    }
+
+    /// Extract geometry data from OOF model, grouped by material.
+    ///
+    /// OOF models contain hierarchical subobjects. This method flattens all subobjects
+    /// into a single mesh with material-grouped primitives.
+    fn extract_oof_geometry(&self, model: &OofModel) -> Result<GeometryData> {
+        let mut all_positions = Vec::new();
+        let mut primitives = Vec::new();
+        let mut position_offset = 0;
+
+        // Process each subobject
+        for subobj in &model.subobjects {
+            if subobj.vertices.is_empty() || subobj.faces.is_empty() {
+                continue;
+            }
+
+            // Add positions for this subobject
+            for vertex in &subobj.vertices {
+                all_positions.push(vertex.x);
+                all_positions.push(vertex.y);
+                all_positions.push(vertex.z);
+            }
+
+            // Group faces by texture ID
+            let mut material_faces: HashMap<u16, Vec<&crate::oof::Face>> = HashMap::new();
+            for face in &subobj.faces {
+                material_faces
+                    .entry(face.texture_id)
+                    .or_default()
+                    .push(face);
+            }
+
+            // Create primitives for each material/texture group
+            for (texture_id, faces) in material_faces {
+                let mut indices = Vec::new();
+                let mut normals = Vec::new();
+                let mut uvs = Vec::new();
+
+                for face in faces {
+                    // Triangulate face (OOF faces can have arbitrary vertex counts)
+                    // Use simple fan triangulation from vertex 0
+                    for i in 1..(face.vertex_indices.len() - 1) {
+                        // Triangle: 0, i, i+1
+                        indices.push((position_offset + face.vertex_indices[0] as usize) as u32);
+                        indices.push((position_offset + face.vertex_indices[i] as usize) as u32);
+                        indices
+                            .push((position_offset + face.vertex_indices[i + 1] as usize) as u32);
+
+                        // Use face normal for all vertices (flat shading per face)
+                        for _ in 0..3 {
+                            normals.push(face.normal.x);
+                            normals.push(face.normal.y);
+                            normals.push(face.normal.z);
+                        }
+
+                        // Add UVs for this triangle
+                        if !face.uvs.is_empty() {
+                            // UV for vertex 0
+                            if !face.uvs.is_empty() {
+                                uvs.push(face.uvs[0].0);
+                                uvs.push(face.uvs[0].1);
+                            } else {
+                                uvs.push(0.0);
+                                uvs.push(0.0);
+                            }
+                            // UV for vertex i
+                            if i < face.uvs.len() {
+                                uvs.push(face.uvs[i].0);
+                                uvs.push(face.uvs[i].1);
+                            } else {
+                                uvs.push(0.0);
+                                uvs.push(0.0);
+                            }
+                            // UV for vertex i+1
+                            if i + 1 < face.uvs.len() {
+                                uvs.push(face.uvs[i + 1].0);
+                                uvs.push(face.uvs[i + 1].1);
+                            } else {
+                                uvs.push(0.0);
+                                uvs.push(0.0);
+                            }
+                        }
+                    }
+                }
+
+                // Create primitive with material key
+                let material_key = MaterialKey::Textured(texture_id);
+
+                primitives.push(MeshPrimitive {
+                    material_key,
+                    indices,
+                    normals,
+                    uvs: if uvs.is_empty() { None } else { Some(uvs) },
+                });
+            }
+
+            position_offset += subobj.vertices.len();
+        }
+
+        if primitives.is_empty() {
+            return Err(AssetError::InvalidFormat(
+                "No valid geometry found in OOF model".to_string(),
+            ));
+        }
+
+        Ok(GeometryData {
+            positions: all_positions,
+            primitives,
+        })
+    }
+
+    /// Extract texture filenames from OOF model.
+    fn extract_oof_textures(&self, model: &OofModel) -> Result<HashMap<u16, String>> {
+        let mut textures = HashMap::new();
+
+        for (idx, texture_name) in model.textures.iter().enumerate() {
+            // OOF stores texture base names without extension (e.g., "metal01")
+            // Store as-is; external system will need to locate the actual file
+            textures.insert(idx as u16, texture_name.clone());
         }
 
         Ok(textures)

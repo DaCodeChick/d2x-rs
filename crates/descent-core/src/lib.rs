@@ -102,6 +102,7 @@ pub mod models;
 pub mod mve;
 pub mod mvl;
 pub mod ogf;
+pub mod oof;
 pub mod palette;
 pub mod pig;
 pub mod player;
@@ -131,6 +132,10 @@ pub use mission::{MissionFile, SecretLevel};
 pub use mve::{MveChunk, MveFile, MveSegment, MveSegmentType};
 pub use mvl::{MvlArchive, MvlEntry};
 pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
+pub use oof::{
+    AttachPoint, Face, GunPoint, Keyframe, OofModel, OofParser, PosKeyframe, Subobject,
+    SubobjectAnimation, Vector3, WeaponBattery,
+};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{

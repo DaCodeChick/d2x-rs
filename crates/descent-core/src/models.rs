@@ -5,7 +5,7 @@
 //!
 //! - **POF**: Descent 1 & 2 polygon object format
 //! - **ASE**: ASCII Scene Export format (D2X-XL high-res models, requires `hires-assets` feature)
-//! - **OOF**: Descent 3 Outrage object format (future)
+//! - **OOF**: Descent 3 Outrage object format
 //!
 //! # Examples
 //!
@@ -55,6 +55,7 @@
 #[cfg(feature = "hires-assets")]
 use crate::ase::AseFile;
 use crate::error::Result;
+use crate::oof::OofModel;
 use crate::pof::PofModel;
 
 /// A 3D model from any supported format.
@@ -72,9 +73,8 @@ pub enum Model {
     /// D2X-XL ASE (ASCII Scene Export) high-resolution model
     #[cfg(feature = "hires-assets")]
     Ase(AseFile),
-    /// Descent 3 OOF (Outrage Object Format) model - not yet implemented
-    #[allow(dead_code)]
-    Oof,
+    /// Descent 3 OOF (Outrage Object Format) model
+    Oof(OofModel),
 }
 
 impl Model {
@@ -120,11 +120,31 @@ impl Model {
         Ok(Self::Ase(ase))
     }
 
+    /// Parse an OOF (Descent 3) model from binary data.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - Raw OOF file data
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use descent_core::models::Model;
+    /// # let data = vec![];
+    /// let model = Model::from_oof(&data).unwrap();
+    /// ```
+    pub fn from_oof(data: &[u8]) -> Result<Self> {
+        let oof = crate::oof::OofParser::parse(data)?;
+        Ok(Self::Oof(oof))
+    }
+
     /// Detect model format and parse accordingly.
     ///
     /// Automatically detects the format based on file signature/content and parses.
-    /// For text files (if `hires-assets` feature enabled), attempts to parse as ASE.
-    /// Otherwise, attempts to parse as binary POF.
+    /// Detection order:
+    /// 1. ASE (text file starting with "*3DSMAX_ASCIIEXPORT", if `hires-assets` feature enabled)
+    /// 2. OOF (binary file with chunk-based structure starting with OHDR chunk)
+    /// 3. POF (binary opcode format, fallback)
     ///
     /// # Arguments
     ///
@@ -144,6 +164,17 @@ impl Model {
             && text.trim_start().starts_with("*3DSMAX_ASCIIEXPORT")
         {
             return Self::from_ase(text);
+        }
+
+        // Try OOF (chunk-based format with OHDR/SOBJ chunks)
+        // OOF files start with a chunk ID (u32 little-endian)
+        // Common first chunk is OHDR (0x4F524448)
+        if data.len() >= 8 {
+            let chunk_id = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+            // Check for OHDR, SOBJ, or other known OOF chunk IDs
+            if chunk_id == 0x4F524448 || chunk_id == 0x534F424A {
+                return Self::from_oof(&data);
+            }
         }
 
         // Try POF (binary opcode format)
@@ -195,6 +226,25 @@ impl Model {
         }
     }
 
+    /// Get the underlying OOF model, if this is an OOF.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use descent_core::models::Model;
+    /// # let data = vec![];
+    /// let model = Model::from_oof(&data).unwrap();
+    /// if let Some(oof) = model.as_oof() {
+    ///     println!("OOF has {} subobjects", oof.subobjects.len());
+    /// }
+    /// ```
+    pub fn as_oof(&self) -> Option<&OofModel> {
+        match self {
+            Self::Oof(oof) => Some(oof),
+            _ => None,
+        }
+    }
+
     /// Get the number of subobjects in the model.
     ///
     /// Subobjects represent individual parts (ship hull, wings, turrets, etc.).
@@ -203,7 +253,7 @@ impl Model {
             Self::Pof(pof) => pof.submodel_calls.len(),
             #[cfg(feature = "hires-assets")]
             Self::Ase(ase) => ase.geom_objects.len(),
-            Self::Oof => 0,
+            Self::Oof(oof) => oof.subobjects.len(),
         }
     }
 
@@ -222,7 +272,7 @@ impl Model {
             Self::Pof(_) => "POF",
             #[cfg(feature = "hires-assets")]
             Self::Ase(_) => "ASE",
-            Self::Oof => "OOF",
+            Self::Oof(_) => "OOF",
         }
     }
 }
