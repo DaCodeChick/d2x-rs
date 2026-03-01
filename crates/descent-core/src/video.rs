@@ -238,10 +238,12 @@ impl VideoConverter {
                 }
             } else if Some(stream.index()) == audio_stream_index
                 && let Some(ref mut decoder) = audio_decoder
+                && let Some(audio_idx) = audio_stream_index
+                && let Some(audio_stream_tb) = audio_stream_time_base
             {
                 // Decode audio packet
                 if let Some(audio_tb) = audio_decoder_time_base {
-                    packet.rescale_ts(audio_stream_time_base.unwrap(), audio_tb);
+                    packet.rescale_ts(audio_stream_tb, audio_tb);
                 }
                 decoder.send_packet(&packet)?;
 
@@ -255,7 +257,7 @@ impl VideoConverter {
                         self.receive_and_write_audio_packets(
                             encoder,
                             &mut output_context,
-                            audio_stream_index.unwrap(),
+                            audio_idx,
                         )?;
                     }
                     }
@@ -274,13 +276,10 @@ impl VideoConverter {
         )?;
 
         // Flush audio encoder if present
-        if let Some(ref mut encoder) = audio_encoder {
+        if let (Some(ref mut encoder), Some(audio_idx)) = (&mut audio_encoder, audio_stream_index)
+        {
             encoder.send_eof()?;
-            self.receive_and_write_audio_packets(
-                encoder,
-                &mut output_context,
-                audio_stream_index.unwrap(),
-            )?;
+            self.receive_and_write_audio_packets(encoder, &mut output_context, audio_idx)?;
         }
 
         // Write output trailer
