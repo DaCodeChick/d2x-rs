@@ -30,9 +30,6 @@ serde = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-# Video conversion (optional, for cutscene support)
-ffmpeg-next = { version = "8.0", optional = true, default-features = false, features = ["codec", "format", "software-scaling", "build-license-gpl"] }
-
 [features]
 default = ["base-d2"]
 
@@ -41,4 +38,4 @@ base-d2 = ["base-d1"]
 d2x-xl = ["d2x-engine/d2x-xl"]
 
 # Cutscene support with MVE video conversion
-cutscenes = ["ffmpeg-next"]
+cutscenes = ["descent-core/video"]

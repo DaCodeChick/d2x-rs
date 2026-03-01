@@ -58,3 +58,11 @@ extended-limits = []
 
 # High-res asset support
 hires-assets = []
+
+# Video conversion (MVE to MP4)
+video = ["dep:ffmpeg-next"]
+
+[dependencies.ffmpeg-next]
+version = "8.0"
+optional = true
+features = ["build"]  # Statically link FFmpeg

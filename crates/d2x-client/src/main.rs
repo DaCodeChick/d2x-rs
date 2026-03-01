@@ -1,7 +1,5 @@
 mod setup;
 mod ui;
-
-#[cfg(feature = "cutscenes")]
 mod video;
 
 use bevy::prelude::*;

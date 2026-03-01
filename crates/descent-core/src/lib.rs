@@ -109,6 +109,9 @@ pub mod pof;
 pub mod sound;
 pub mod validation;
 
+#[cfg(feature = "video")]
+pub mod video;
+
 pub use dhf::{DhfArchive, DhfEntry};
 pub use error::{AssetError, Result};
 pub use fixed_point::Fix;
@@ -124,10 +127,13 @@ pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{
-    CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION, PlayerProfile, PlrProfile, PlxProfile,
+    PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
 };
 pub use pof::{
     FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap, SubmodelCall,
     TexturedPolygon,
 };
 pub use sound::{HmpFile, HmpTrack, SoundData, SoundHeader};
+
+#[cfg(feature = "video")]
+pub use video::VideoConverter;
