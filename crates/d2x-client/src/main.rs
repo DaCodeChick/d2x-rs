@@ -1,5 +1,6 @@
 mod setup;
 mod ui;
+mod video;
 
 use bevy::prelude::*;
 use d2x_engine::D2xEnginePlugin;

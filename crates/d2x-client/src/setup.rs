@@ -30,6 +30,9 @@
 //! don't need to install FFmpeg separately. The FFmpeg libraries are bundled into the
 //! game executable.
 //!
+//! **Note**: Video conversion is only available when the `cutscenes` feature is enabled.
+//! This allows builds without cutscene support to avoid the large FFmpeg dependency.
+//!
 //! # Directory Structure
 //!
 //! After conversion, assets are organized as:
