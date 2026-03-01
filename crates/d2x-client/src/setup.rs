@@ -74,6 +74,7 @@ pub struct AssetStatus {
     /// Path to converted assets directory.
     pub assets_path: PathBuf,
     /// Path to original Descent installation (if selected).
+    #[allow(dead_code)] // Future UI feature
     pub source_path: Option<PathBuf>,
     /// Whether all required assets are present.
     pub ready: bool,
@@ -92,11 +93,13 @@ pub enum SetupMode {
     /// Needs setup, showing prompt.
     NeedsSetup,
     /// Currently converting.
+    #[allow(dead_code)] // Future UI feature
     Converting,
 }
 
 /// Conversion progress tracking.
 #[derive(Resource, Default)]
+#[allow(dead_code)] // Future UI feature
 pub struct ConversionProgress {
     /// Current file being converted.
     pub current_file: String,
@@ -110,6 +113,7 @@ pub struct ConversionProgress {
 
 /// Stages of asset conversion.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)] // Future UI feature
 pub enum ConversionStage {
     #[default]
     Idle,

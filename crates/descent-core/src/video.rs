@@ -260,7 +260,6 @@ impl VideoConverter {
                             audio_idx,
                         )?;
                     }
-                    }
                 }
             }
         }
@@ -276,7 +275,7 @@ impl VideoConverter {
         )?;
 
         // Flush audio encoder if present
-        if let (Some(ref mut encoder), Some(audio_idx)) = (&mut audio_encoder, audio_stream_index)
+        if let (Some(encoder), Some(audio_idx)) = (&mut audio_encoder, audio_stream_index)
         {
             encoder.send_eof()?;
             self.receive_and_write_audio_packets(encoder, &mut output_context, audio_idx)?;

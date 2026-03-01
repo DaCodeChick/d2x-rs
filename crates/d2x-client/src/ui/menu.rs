@@ -26,6 +26,7 @@ pub struct Menu {
     /// Menu items
     pub items: Vec<MenuItem>,
     /// Top visible item for scrolling
+    #[allow(dead_code)] // Future scrolling feature
     pub top_choice: usize,
     /// Background color (Descent blue)
     pub bg_color: Color,
@@ -56,6 +57,7 @@ impl Menu {
     }
 
     /// Add multiple items
+    #[allow(dead_code)] // Future API for batch item addition
     pub fn add_items(mut self, items: Vec<MenuItem>) -> Self {
         self.items.extend(items);
         self
@@ -70,21 +72,25 @@ impl Menu {
     }
 
     /// Find item by ID
+    #[allow(dead_code)] // Future API for item lookups
     pub fn find_item(&self, id: &str) -> Option<&MenuItem> {
         self.items.iter().find(|item| item.id == id)
     }
 
     /// Find item by ID (mutable)
+    #[allow(dead_code)] // Future API for item lookups
     pub fn find_item_mut(&mut self, id: &str) -> Option<&mut MenuItem> {
         self.items.iter_mut().find(|item| item.id == id)
     }
 
     /// Get value of item by ID
+    #[allow(dead_code)] // Future API for item value queries
     pub fn get_value(&self, id: &str) -> Option<i32> {
         self.find_item(id).map(|item| item.value)
     }
 
     /// Set value of item by ID
+    #[allow(dead_code)] // Future API for item value changes
     pub fn set_value(&mut self, id: &str, value: i32) {
         if let Some(item) = self.find_item_mut(id) {
             item.value = value;
@@ -117,11 +123,13 @@ fn handle_menu_input(
     mut menu_state: ResMut<MenuState>,
     mut menu_query: Query<&mut Menu>,
 ) {
-    if !menu_state.visible || menu_state.active_menu.is_none() {
+    if !menu_state.visible {
         return;
     }
 
-    let menu_entity = menu_state.active_menu.unwrap();
+    let Some(menu_entity) = menu_state.active_menu else {
+        return;
+    };
     let Ok(mut menu) = menu_query.get_mut(menu_entity) else {
         return;
     };
@@ -165,28 +173,25 @@ fn handle_menu_input(
     }
 
     // Handle Enter key
-    if keyboard.just_pressed(KeyCode::Enter) {
-        if menu_state.selected_index < menu.items.len() {
-            let item_type = menu.items[menu_state.selected_index].item_type;
-            match item_type {
-                MenuItemType::Check => {
-                    let item = &mut menu.items[menu_state.selected_index];
-                    item.value = if item.value != 0 { 0 } else { 1 };
-                }
-                MenuItemType::Radio => {
-                    // Uncheck all in group, check this one
-                    let group = menu.items[menu_state.selected_index].group;
-                    for other_item in menu.items.iter_mut() {
-                        if other_item.group == group && other_item.item_type == MenuItemType::Radio
-                        {
-                            other_item.value = 0;
-                        }
+    if keyboard.just_pressed(KeyCode::Enter) && menu_state.selected_index < menu.items.len() {
+        let item_type = menu.items[menu_state.selected_index].item_type;
+        match item_type {
+            MenuItemType::Check => {
+                let item = &mut menu.items[menu_state.selected_index];
+                item.value = if item.value != 0 { 0 } else { 1 };
+            }
+            MenuItemType::Radio => {
+                // Uncheck all in group, check this one
+                let group = menu.items[menu_state.selected_index].group;
+                for other_item in menu.items.iter_mut() {
+                    if other_item.group == group && other_item.item_type == MenuItemType::Radio {
+                        other_item.value = 0;
                     }
-                    menu.items[menu_state.selected_index].value = 1;
                 }
-                _ => {
-                    // For Menu type, would trigger callback here
-                }
+                menu.items[menu_state.selected_index].value = 1;
+            }
+            _ => {
+                // For Menu type, would trigger callback here
             }
         }
     }
@@ -217,11 +222,13 @@ fn handle_menu_hover(
     menu_query: Query<&Menu>,
     interaction_query: Query<(&Interaction, &MenuItemIndex), Changed<Interaction>>,
 ) {
-    if !menu_state.visible || menu_state.active_menu.is_none() {
+    if !menu_state.visible {
         return;
     }
 
-    let menu_entity = menu_state.active_menu.unwrap();
+    let Some(menu_entity) = menu_state.active_menu else {
+        return;
+    };
     let Ok(menu) = menu_query.get(menu_entity) else {
         return;
     };
@@ -243,11 +250,13 @@ fn handle_menu_click(
     mut menu_query: Query<&mut Menu>,
     interaction_query: Query<(&Interaction, &MenuItemIndex), Changed<Interaction>>,
 ) {
-    if !menu_state.visible || menu_state.active_menu.is_none() {
+    if !menu_state.visible {
         return;
     }
 
-    let menu_entity = menu_state.active_menu.unwrap();
+    let Some(menu_entity) = menu_state.active_menu else {
+        return;
+    };
     let Ok(mut menu) = menu_query.get_mut(menu_entity) else {
         return;
     };
@@ -312,7 +321,9 @@ fn handle_slider_drag(
         return;
     };
 
-    let menu_entity = menu_state.active_menu.unwrap();
+    let Some(menu_entity) = menu_state.active_menu else {
+        return;
+    };
     let Ok(mut menu) = menu_query.get_mut(menu_entity) else {
         return;
     };
@@ -375,11 +386,13 @@ fn render_menu(
         commands.entity(entity).despawn();
     }
 
-    if !menu_state.visible || menu_state.active_menu.is_none() {
+    if !menu_state.visible {
         return;
     }
 
-    let menu_entity = menu_state.active_menu.unwrap();
+    let Some(menu_entity) = menu_state.active_menu else {
+        return;
+    };
     let Ok(menu) = menu_query.get(menu_entity) else {
         return;
     };

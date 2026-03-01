@@ -103,7 +103,7 @@ impl TgaImage {
         // Skip color map (not commonly used for D2X-XL textures)
         if header.color_map_type == 1 {
             let color_map_size =
-                (header.color_map_length as usize) * ((header.color_map_depth as usize + 7) / 8);
+                (header.color_map_length as usize) * (header.color_map_depth as usize).div_ceil(8);
             cursor.set_position(cursor.position() + color_map_size as u64);
         }
 
@@ -137,7 +137,7 @@ impl TgaImage {
 
     fn parse_image_data(cursor: &mut Cursor<&[u8]>, header: &TgaHeader) -> Result<Vec<u8>> {
         let pixel_count = (header.width as usize) * (header.height as usize);
-        let bytes_per_pixel = (header.bits_per_pixel as usize + 7) / 8;
+        let bytes_per_pixel = (header.bits_per_pixel as usize).div_ceil(8);
 
         match header.image_type {
             2 => {

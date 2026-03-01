@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 /// Menu item type (from D2X-XL NM_TYPE_* defines)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // Future menu features
 pub enum MenuItemType {
     /// Menu item - when Enter is hit, menu returns this item number
     Menu,
@@ -43,14 +44,18 @@ pub struct MenuItem {
     /// Maximum value (for sliders, number inputs)
     pub max_value: i32,
     /// Maximum text length for input boxes
+    #[allow(dead_code)] // Future input box feature
     pub text_len: usize,
     /// Whether item is unavailable/grayed out
     pub unavailable: bool,
     /// Whether item is centered
+    #[allow(dead_code)] // Future layout feature
     pub centered: bool,
     /// Hotkey character (from D2X-XL's m_nKey)
+    #[allow(dead_code)] // Future hotkey feature
     pub hotkey: Option<char>,
     /// Item ID for lookups
+    #[allow(dead_code)] // Future item lookup feature
     pub id: String,
 }
 
@@ -96,6 +101,7 @@ impl MenuItem {
     }
 
     /// Create an input box
+    #[allow(dead_code)] // Future input box feature
     pub fn input(text: impl Into<String>, max_len: usize) -> Self {
         Self {
             item_type: MenuItemType::Input,
@@ -106,18 +112,21 @@ impl MenuItem {
     }
 
     /// Set hotkey for this item
+    #[allow(dead_code)] // Future hotkey feature
     pub fn with_hotkey(mut self, key: char) -> Self {
         self.hotkey = Some(key);
         self
     }
 
     /// Set item ID for lookups
+    #[allow(dead_code)] // Future item lookup feature
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.id = id.into();
         self
     }
 
     /// Set centered flag
+    #[allow(dead_code)] // Future layout feature
     pub fn centered(mut self) -> Self {
         self.centered = true;
         self

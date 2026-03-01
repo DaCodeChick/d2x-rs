@@ -5,6 +5,7 @@
 //! `descent-core::video` - this module provides the setup/UI integration.
 
 #[cfg(feature = "cutscenes")]
+#[allow(unused_imports)] // Re-exported for convenience, may not be used directly
 pub use descent_core::VideoConverter;
 
 #[cfg(not(feature = "cutscenes"))]

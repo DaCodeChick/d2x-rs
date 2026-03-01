@@ -318,7 +318,11 @@ fn handle_midi_events(
             }
 
             // Create MIDI audio source
-            let soundfont = state.soundfont.as_ref().unwrap().clone();
+            let Some(soundfont) = state.soundfont.as_ref() else {
+                error!("SoundFont not loaded");
+                return;
+            };
+            let soundfont = soundfont.clone();
             match MidiAudioSource::new(soundfont, midi_data, *looping) {
                 Ok(source) => {
                     // Add source to asset storage
