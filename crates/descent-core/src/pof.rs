@@ -36,7 +36,7 @@
 use crate::error::{AssetError, Result};
 use crate::fixed_point::Fix;
 use crate::geometry::{FixVector, Uvl};
-use crate::io::ReadExt;
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Seek, SeekFrom};
 
 /// POF opcode enumeration.
@@ -201,9 +201,9 @@ impl<'a> PofParser<'a> {
         const MAX_SUBMODELS: usize = 10;
 
         // Read basic header
-        let _n_models = self.cursor.read_i32_le()?;
-        let _data_size = self.cursor.read_i32_le()?;
-        let _unused = self.cursor.read_i32_le()?;
+        let _n_models = self.cursor.read_i32::<LittleEndian>()?;
+        let _data_size = self.cursor.read_i32::<LittleEndian>()?;
+        let _unused = self.cursor.read_i32::<LittleEndian>()?;
 
         // Skip submodel data (we don't need it for texture extraction)
         self.skip_submodel_arrays(MAX_SUBMODELS)?;
@@ -211,11 +211,11 @@ impl<'a> PofParser<'a> {
         // Model-level bounds and radius
         let _model_mins = self.read_fixvector()?;
         let _model_maxs = self.read_fixvector()?;
-        let _model_rad = self.cursor.read_i32_le()?;
+        let _model_rad = self.cursor.read_i32::<LittleEndian>()?;
 
         // Texture metadata (what we actually need!)
         self.model.n_textures = self.cursor.read_u8()?;
-        self.model.first_texture = self.cursor.read_u16_le()?;
+        self.model.first_texture = self.cursor.read_u16::<LittleEndian>()?;
         let _simpler_model = self.cursor.read_u8()?;
 
         Ok(())
@@ -224,7 +224,7 @@ impl<'a> PofParser<'a> {
     /// Skip submodel arrays in header (we don't use them for conversion).
     fn skip_submodel_arrays(&mut self, max_submodels: usize) -> Result<()> {
         // submodel_ptrs[10]: i32 × 10
-        (0..max_submodels).try_for_each(|_| self.cursor.read_i32_le().map(|_| ()))?;
+        (0..max_submodels).try_for_each(|_| self.cursor.read_i32::<LittleEndian>().map(|_| ()))?;
         // submodel_offsets[10]: FixVector × 10 (12 bytes each)
         (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
         // submodel_norms[10]: FixVector × 10
@@ -232,7 +232,7 @@ impl<'a> PofParser<'a> {
         // submodel_pnts[10]: FixVector × 10
         (0..max_submodels).try_for_each(|_| self.read_fixvector().map(|_| ()))?;
         // submodel_rads[10]: Fix × 10 (i32)
-        (0..max_submodels).try_for_each(|_| self.cursor.read_i32_le().map(|_| ()))?;
+        (0..max_submodels).try_for_each(|_| self.cursor.read_i32::<LittleEndian>().map(|_| ()))?;
         // submodel_parents[10]: u8 × 10
         (0..max_submodels).try_for_each(|_| self.cursor.read_u8().map(|_| ()))?;
         // submodel_mins[10]: FixVector × 10
@@ -245,7 +245,7 @@ impl<'a> PofParser<'a> {
     /// Main opcode parsing loop.
     fn parse_opcodes(&mut self) -> Result<()> {
         loop {
-            let opcode_value = self.cursor.read_u16_le()?;
+            let opcode_value = self.cursor.read_u16::<LittleEndian>()?;
             let opcode = Opcode::from_u16(opcode_value)?;
 
             match opcode {
@@ -266,7 +266,7 @@ impl<'a> PofParser<'a> {
     /// Parse OP_DEFPOINTS: Define vertex positions.
     /// Structure: [opcode:u16][count:u16][points:FixVector×n]
     fn parse_defpoints(&mut self) -> Result<()> {
-        let count = self.cursor.read_u16_le()? as usize;
+        let count = self.cursor.read_u16::<LittleEndian>()? as usize;
         let vertices = (0..count)
             .map(|_| self.read_fixvector())
             .collect::<Result<Vec<_>>>()?;
@@ -278,18 +278,18 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][nverts:u16][center:vec][normal:vec][color:u16][verts:u16×n]
     /// Size: 30 + ((n|1))×2 bytes
     fn parse_flatpoly(&mut self) -> Result<()> {
-        let nverts = self.cursor.read_u16_le()? as usize;
+        let nverts = self.cursor.read_u16::<LittleEndian>()? as usize;
         let center = self.read_fixvector()?;
         let normal = self.read_fixvector()?;
-        let color = self.cursor.read_u16_le()?;
+        let color = self.cursor.read_u16::<LittleEndian>()?;
 
         let vertices = (0..nverts)
-            .map(|_| self.cursor.read_u16_le())
+            .map(|_| self.cursor.read_u16::<LittleEndian>().map_err(Into::into))
             .collect::<Result<Vec<_>>>()?;
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
-            let _padding = self.cursor.read_u16_le()?;
+            let _padding = self.cursor.read_u16::<LittleEndian>()?;
         }
 
         self.model.polygons.push(Polygon::Flat(FlatPolygon {
@@ -306,18 +306,18 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][nverts:u16][center:vec][normal:vec][texture:u16][verts:u16×n][uvls:Uvl×n]
     /// Size: 30 + ((n|1))×2 + n×12 bytes
     fn parse_tmappoly(&mut self) -> Result<()> {
-        let nverts = self.cursor.read_u16_le()? as usize;
+        let nverts = self.cursor.read_u16::<LittleEndian>()? as usize;
         let center = self.read_fixvector()?;
         let normal = self.read_fixvector()?;
-        let texture_id = self.cursor.read_u16_le()?;
+        let texture_id = self.cursor.read_u16::<LittleEndian>()?;
 
         let vertices = (0..nverts)
-            .map(|_| self.cursor.read_u16_le())
+            .map(|_| self.cursor.read_u16::<LittleEndian>().map_err(Into::into))
             .collect::<Result<Vec<_>>>()?;
 
         // Padding: vertex count is padded to odd alignment
         if nverts.is_multiple_of(2) {
-            let _padding = self.cursor.read_u16_le()?;
+            let _padding = self.cursor.read_u16::<LittleEndian>()?;
         }
 
         let uvls = (0..nverts)
@@ -342,11 +342,11 @@ impl<'a> PofParser<'a> {
     /// SORTNORM creates a BSP tree for proper front-to-back polygon sorting.
     /// The front_offset and back_offset point to child nodes in the opcode stream.
     fn parse_sortnorm(&mut self) -> Result<()> {
-        let _unused = self.cursor.read_u16_le()?;
+        let _unused = self.cursor.read_u16::<LittleEndian>()?;
         let _point = self.read_fixvector()?;
         let _normal = self.read_fixvector()?;
-        let front_offset = self.cursor.read_u16_le()?;
-        let back_offset = self.cursor.read_u16_le()?;
+        let front_offset = self.cursor.read_u16::<LittleEndian>()?;
+        let back_offset = self.cursor.read_u16::<LittleEndian>()?;
 
         // Save current position
         let current_pos = self.cursor.position();
@@ -373,7 +373,7 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][texture:u16][bot_point:vec][bot_width:fix][top_point:vec][top_width:fix]
     /// Size: 36 bytes
     fn parse_rodbm(&mut self) -> Result<()> {
-        let texture_id = self.cursor.read_u16_le()?;
+        let texture_id = self.cursor.read_u16::<LittleEndian>()?;
         let bot_point = self.read_fixvector()?;
         let bot_width = self.read_fix()?;
         let top_point = self.read_fixvector()?;
@@ -394,9 +394,9 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][submodel:u16][offset:vec][data_offset:u16]
     /// Size: 20 bytes
     fn parse_subcall(&mut self) -> Result<()> {
-        let submodel_num = self.cursor.read_u16_le()?;
+        let submodel_num = self.cursor.read_u16::<LittleEndian>()?;
         let offset = self.read_fixvector()?;
-        let data_offset = self.cursor.read_u16_le()?;
+        let data_offset = self.cursor.read_u16::<LittleEndian>()?;
 
         self.model.submodel_calls.push(SubmodelCall {
             submodel_num,
@@ -423,9 +423,9 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][count:u16][start:u16][unused:u16][points:FixVector×n]
     /// Size: 8 + n×12 bytes
     fn parse_defpstart(&mut self) -> Result<()> {
-        let count = self.cursor.read_u16_le()? as usize;
-        let start = self.cursor.read_u16_le()? as usize;
-        let _unused = self.cursor.read_u16_le()?;
+        let count = self.cursor.read_u16::<LittleEndian>()? as usize;
+        let start = self.cursor.read_u16::<LittleEndian>()? as usize;
+        let _unused = self.cursor.read_u16::<LittleEndian>()?;
 
         // Ensure vertices vector is large enough
         if self.model.vertices.len() < start + count {
@@ -443,7 +443,7 @@ impl<'a> PofParser<'a> {
     /// Structure: [opcode:u16][glow_num:u16]
     /// Size: 4 bytes
     fn parse_glow(&mut self) -> Result<()> {
-        let glow_num = self.cursor.read_u16_le()?;
+        let glow_num = self.cursor.read_u16::<LittleEndian>()?;
         self.model.glow_points.push(GlowPoint { glow_num });
         Ok(())
     }
@@ -451,7 +451,7 @@ impl<'a> PofParser<'a> {
     // ===== Binary reading helpers =====
 
     fn read_fix(&mut self) -> Result<Fix> {
-        Ok(Fix::from(self.cursor.read_i32_le()?))
+        Ok(Fix::from(self.cursor.read_i32::<LittleEndian>()?))
     }
 
     fn read_fixvector(&mut self) -> Result<FixVector> {

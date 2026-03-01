@@ -46,8 +46,8 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use crate::io::ReadExt;
 use crate::validation::{validate_signature, validate_version};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 
 // HXM file constants
@@ -100,14 +100,14 @@ impl HxmFile {
         let file_size = data.len();
 
         // Parse header
-        let signature = cursor.read_u32_le()?;
+        let signature = cursor.read_u32::<LittleEndian>()?;
         validate_signature(signature, HXM_SIGNATURE, "HXM")?;
 
-        let version = cursor.read_i32_le()?;
+        let version = cursor.read_i32::<LittleEndian>()?;
         validate_version(version, &[HXM_VERSION], "HXM")?;
 
         // Read number of custom robots
-        let robot_count = cursor.read_u32_le()?;
+        let robot_count = cursor.read_u32::<LittleEndian>()?;
         if robot_count > 1000 {
             return Err(AssetError::InvalidFormat(format!(
                 "HXM robot count too large: {} (max 1000)",
@@ -118,7 +118,7 @@ impl HxmFile {
         // Read custom robot data
         let mut custom_robots = Vec::with_capacity(robot_count as usize);
         for _ in 0..robot_count {
-            let robot_index = cursor.read_u32_le()?;
+            let robot_index = cursor.read_u32::<LittleEndian>()?;
 
             // Read robot info struct
             let mut robot_data = vec![0u8; ROBOT_INFO_SIZE];

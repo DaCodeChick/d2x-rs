@@ -291,8 +291,9 @@ impl PlrProfile {
     /// - Signature is invalid
     /// - Version is unsupported
     pub fn parse(data: &[u8]) -> Result<Self> {
-        use crate::io::ReadExt;
+        use crate::io::read_bytes;
         use crate::validation::{validate_min, validate_signature};
+        use byteorder::{LittleEndian, ReadBytesExt};
         use std::io::Cursor;
 
         // Minimum size: signature (4) + version (4) + callsign (8)
@@ -301,12 +302,12 @@ impl PlrProfile {
         let mut cursor = Cursor::new(data);
 
         // Read and validate signature "PLYR"
-        let signature = cursor.read_u32_le()?;
+        let signature = cursor.read_u32::<LittleEndian>()?;
         const PLR_SIGNATURE: u32 = u32::from_le_bytes([b'P', b'L', b'Y', b'R']);
         validate_signature(signature, PLR_SIGNATURE, "PLR file")?;
 
         // Read version
-        let version = cursor.read_u32_le()?;
+        let version = cursor.read_u32::<LittleEndian>()?;
 
         // Validate version
         match version {
@@ -322,7 +323,7 @@ impl PlrProfile {
         }
 
         // Read callsign (8 bytes, null-terminated)
-        let callsign_bytes = cursor.read_bytes(CALLSIGN_LEN)?;
+        let callsign_bytes = read_bytes(&mut cursor, CALLSIGN_LEN)?;
         let callsign = crate::io::read_null_padded_string(&callsign_bytes);
 
         // Store remaining data for future parsing

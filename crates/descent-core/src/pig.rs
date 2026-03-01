@@ -10,8 +10,8 @@
 //! - Bitmap data: RLE-compressed pixel data
 
 use crate::error::{AssetError, Result};
-use crate::io::ReadExt;
 use crate::validation::{validate_min, validate_signature, validate_version};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 
@@ -254,15 +254,15 @@ impl PigFile {
         let mut cursor = Cursor::new(&data);
 
         // Read and verify signature
-        let signature = cursor.read_u32_le()?;
+        let signature = cursor.read_u32::<LittleEndian>()?;
         validate_signature(signature, PIG_SIGNATURE, "PIG")?;
 
         // Read and verify version
-        let version = cursor.read_i32_le()?;
+        let version = cursor.read_i32::<LittleEndian>()?;
         validate_version(version, &[PIG_VERSION], "PIG")?;
 
         // Read bitmap count
-        let num_bitmaps = cursor.read_i32_le()?;
+        let num_bitmaps = cursor.read_i32::<LittleEndian>()?;
         validate_min(num_bitmaps, 0, "bitmap count")?;
 
         // Calculate data section start

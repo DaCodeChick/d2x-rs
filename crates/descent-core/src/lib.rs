@@ -132,7 +132,6 @@ pub use ham::{HamFile, RobotInfo, WeaponInfo};
 pub use hog2::{Hog2Archive, Hog2Entry};
 pub use hxm::HxmFile;
 pub use iff::{BitmapHeader as IffBitmapHeader, BitmapType, ChunkId, Compression as IffCompression, IffFile, Masking};
-pub use io::ReadExt;
 pub use level::{Level, Segment, Side};
 pub use mission::{MissionFile, SecretLevel};
 pub use mve::{MveChunk, MveFile, MveSegment, MveSegmentType};

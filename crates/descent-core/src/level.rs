@@ -17,8 +17,8 @@
 use crate::error::{AssetError, Result};
 use crate::fixed_point::{Fix, I2X_MULTIPLIER};
 use crate::geometry::{FixVector, Uvl};
-use crate::io::ReadExt;
 use bitflags::bitflags;
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Cursor;
 
 // ================================================================================================
@@ -289,7 +289,7 @@ pub struct Level {
 
 /// Read fixed-point number
 fn read_fix(cursor: &mut Cursor<&[u8]>) -> Result<Fix> {
-    Ok(Fix::from(cursor.read_i32_le()?))
+    Ok(Fix::from(cursor.read_i32::<LittleEndian>()?))
 }
 
 /// Read 3D vector (fixed-point)
@@ -304,9 +304,9 @@ fn read_fix_vector(cursor: &mut Cursor<&[u8]>) -> Result<FixVector> {
 /// Read UVL (texture coordinates + lighting)
 fn read_uvl(cursor: &mut Cursor<&[u8]>) -> Result<Uvl> {
     // Stored as i16, scaled by << 5 for U/V, << 1 for L
-    let u_raw = cursor.read_i16_le()?;
-    let v_raw = cursor.read_i16_le()?;
-    let l_raw = cursor.read_u16_le()?;
+    let u_raw = cursor.read_i16::<LittleEndian>()?;
+    let v_raw = cursor.read_i16::<LittleEndian>()?;
+    let l_raw = cursor.read_u16::<LittleEndian>()?;
 
     Ok(Uvl {
         u: Fix::from((u_raw as i32) << 5),
@@ -385,15 +385,15 @@ impl Level {
         }
 
         let vertex_count = if new_file_format {
-            cursor.read_u16_le()? as usize
+            cursor.read_u16::<LittleEndian>()? as usize
         } else {
-            cursor.read_i32_le()? as usize
+            cursor.read_i32::<LittleEndian>()? as usize
         };
 
         let segment_count = if new_file_format {
-            cursor.read_u16_le()? as usize
+            cursor.read_u16::<LittleEndian>()? as usize
         } else {
-            cursor.read_i32_le()? as usize
+            cursor.read_i32::<LittleEndian>()? as usize
         };
 
         // Infer version from file format
@@ -484,7 +484,7 @@ impl Level {
             .map(|i| {
                 if (wall_flags & (1 << i)) != 0 {
                     // Wall numbers are always u16 in all versions
-                    cursor.read_u16_le()
+                    cursor.read_u16::<LittleEndian>().map_err(Into::into)
                 } else {
                     Ok(0xFFFF)
                 }
@@ -519,7 +519,7 @@ impl Level {
         segment.children = (0..SEGMENT_SIDE_COUNT)
             .map(|i| {
                 if (flags & (1 << i)) != 0 {
-                    cursor.read_i16_le()
+                    cursor.read_i16::<LittleEndian>().map_err(Into::into)
                 } else {
                     Ok(-1)
                 }
@@ -540,7 +540,7 @@ impl Level {
     ) -> Result<()> {
         segment.vertices = (0..SEGMENT_VERTEX_COUNT)
             .map(|_| {
-                let vertex_idx = cursor.read_u16_le()?;
+                let vertex_idx = cursor.read_u16::<LittleEndian>()?;
                 if vertex_idx as usize >= vertex_count {
                     return Err(AssetError::InvalidLevelFormat(format!(
                         "Vertex index {} out of range (max {})",
@@ -560,7 +560,7 @@ impl Level {
     /// Read segment function data (D1 v1 format)
     fn read_segment_function_v1(cursor: &mut Cursor<&[u8]>, segment: &mut Segment) -> Result<()> {
         // D1 format: i16 static_light, followed by segment type
-        let static_light = cursor.read_i16_le()?;
+        let static_light = cursor.read_i16::<LittleEndian>()?;
         segment.avg_seg_light = Fix::from((static_light as i32) << 4); // Convert to fix by shifting
 
         // Read segment type/function
@@ -618,9 +618,9 @@ impl Level {
 
         // Read base texture
         let base_tex_raw = if new_file_format {
-            cursor.read_u16_le()?
+            cursor.read_u16::<LittleEndian>()?
         } else {
-            cursor.read_i16_le()? as u16
+            cursor.read_i16::<LittleEndian>()? as u16
         };
 
         side.base_texture = base_tex_raw & 0x7FFF;
@@ -634,7 +634,7 @@ impl Level {
 
         if has_overlay {
             // Read overlay texture
-            let ovl_tex_raw = cursor.read_i16_le()?;
+            let ovl_tex_raw = cursor.read_i16::<LittleEndian>()?;
             side.overlay_texture = (ovl_tex_raw as u16) & TEXTURE_ID_MASK;
             side.overlay_orient = ((ovl_tex_raw >> 14) & 3) as u8;
         } else {
@@ -670,8 +670,8 @@ impl Level {
             segment.obj_producer = cursor.read_u8()? as i16;
             segment.value = cursor.read_i8()? as i16;
         } else {
-            segment.obj_producer = cursor.read_i16_le()?;
-            segment.value = cursor.read_i16_le()?;
+            segment.obj_producer = cursor.read_i16::<LittleEndian>()?;
+            segment.value = cursor.read_i16::<LittleEndian>()?;
         }
 
         // Read flags (unused but must be read)
@@ -688,8 +688,8 @@ impl Level {
             // New format: explicit props and damage
             segment.function = function_raw.into();
             segment.props = SegmentProps::from_bits_truncate(cursor.read_u8()?);
-            let damage0 = cursor.read_i16_le()?;
-            let damage1 = cursor.read_i16_le()?;
+            let damage0 = cursor.read_i16::<LittleEndian>()?;
+            let damage1 = cursor.read_i16::<LittleEndian>()?;
             segment.damage[0] = Fix::from(damage0 as i32 * I2X_MULTIPLIER);
             segment.damage[1] = Fix::from(damage1 as i32 * I2X_MULTIPLIER);
         }

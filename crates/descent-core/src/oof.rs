@@ -36,7 +36,7 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use crate::io::ReadExt;
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 /// OOF file format version constants from Descent 3 source.
@@ -298,8 +298,8 @@ impl OofParser {
 
         // Parse chunks until EOF
         while cursor.position() < data.len() as u64 {
-            let chunk_id = cursor.read_u32_le()?;
-            let chunk_size = cursor.read_u32_le()?;
+            let chunk_id = cursor.read_u32::<LittleEndian>()?;
+            let chunk_size = cursor.read_u32::<LittleEndian>()?;
             let chunk_start = cursor.position();
 
             // Try to parse known chunks
@@ -327,7 +327,7 @@ impl OofParser {
 
     /// Parse OHDR (header) chunk.
     fn parse_ohdr(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
-        model.version = cursor.read_u32_le()?;
+        model.version = cursor.read_u32::<LittleEndian>()?;
 
         // Validate version
         if model.version < PM_COMPATIBLE_VERSION || model.version > PM_OBJFILE_VERSION {
@@ -346,7 +346,7 @@ impl OofParser {
         model.name = String::from_utf8_lossy(&name_bytes).to_string();
 
         // Read additional header fields
-        let n_models = cursor.read_u32_le()?;
+        let n_models = cursor.read_u32::<LittleEndian>()?;
         model.subobjects = Vec::with_capacity(n_models as usize);
 
         // Initialize animations vector
@@ -380,7 +380,7 @@ impl OofParser {
         };
 
         // Read subobject index
-        let _subobj_num = cursor.read_u32_le()?;
+        let _subobj_num = cursor.read_u32::<LittleEndian>()?;
 
         // Read subobject name
         let name_len = cursor.read_u8()? as usize;
@@ -389,29 +389,29 @@ impl OofParser {
         subobj.name = String::from_utf8_lossy(&name_bytes).to_string();
 
         // Read parent index
-        subobj.parent = cursor.read_i32_le()?;
+        subobj.parent = cursor.read_i32::<LittleEndian>()?;
 
         // Read geometric properties
         subobj.offset = Self::read_vector3(cursor)?;
-        subobj.radius = cursor.read_f32_le()?;
+        subobj.radius = cursor.read_f32::<LittleEndian>()?;
         subobj.center = Self::read_vector3(cursor)?;
 
         // Read vertices
-        let num_verts = cursor.read_u32_le()?;
+        let num_verts = cursor.read_u32::<LittleEndian>()?;
         subobj.vertices.reserve(num_verts as usize);
         for _ in 0..num_verts {
             subobj.vertices.push(Self::read_vector3(cursor)?);
         }
 
         // Read normals
-        let num_normals = cursor.read_u32_le()?;
+        let num_normals = cursor.read_u32::<LittleEndian>()?;
         subobj.normals.reserve(num_normals as usize);
         for _ in 0..num_normals {
             subobj.normals.push(Self::read_vector3(cursor)?);
         }
 
         // Read faces
-        let num_faces = cursor.read_u32_le()?;
+        let num_faces = cursor.read_u32::<LittleEndian>()?;
         subobj.faces.reserve(num_faces as usize);
         for _ in 0..num_faces {
             let face = Self::parse_face(cursor)?;
@@ -438,19 +438,19 @@ impl OofParser {
         let num_verts = cursor.read_u8()? as usize;
 
         // Read texture ID
-        face.texture_id = cursor.read_u16_le()?;
+        face.texture_id = cursor.read_u16::<LittleEndian>()?;
 
         // Read vertex indices
         face.vertex_indices.reserve(num_verts);
         for _ in 0..num_verts {
-            face.vertex_indices.push(cursor.read_u16_le()?);
+            face.vertex_indices.push(cursor.read_u16::<LittleEndian>()?);
         }
 
         // Read UV coordinates
         face.uvs.reserve(num_verts);
         for _ in 0..num_verts {
-            let u = cursor.read_f32_le()?;
-            let v = cursor.read_f32_le()?;
+            let u = cursor.read_f32::<LittleEndian>()?;
+            let v = cursor.read_f32::<LittleEndian>()?;
             face.uvs.push((u, v));
         }
 
@@ -459,7 +459,7 @@ impl OofParser {
 
     /// Parse TXTR (texture list) chunk.
     fn parse_txtr(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
-        let num_textures = cursor.read_u32_le()?;
+        let num_textures = cursor.read_u32::<LittleEndian>()?;
         model.textures.reserve(num_textures as usize);
 
         for _ in 0..num_textures {
@@ -479,11 +479,11 @@ impl OofParser {
 
     /// Parse GPNT (gun points) chunk.
     fn parse_gpnt(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
-        let num_gun_points = cursor.read_u32_le()?;
+        let num_gun_points = cursor.read_u32::<LittleEndian>()?;
         model.gun_points.reserve(num_gun_points as usize);
 
         for _ in 0..num_gun_points {
-            let parent = cursor.read_u16_le()?;
+            let parent = cursor.read_u16::<LittleEndian>()?;
             let position = Self::read_vector3(cursor)?;
             let normal = Self::read_vector3(cursor)?;
 
@@ -499,11 +499,11 @@ impl OofParser {
 
     /// Parse ATTACH (attach points) chunk.
     fn parse_attach(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
-        let num_attach = cursor.read_u32_le()?;
+        let num_attach = cursor.read_u32::<LittleEndian>()?;
         model.attach_points.reserve(num_attach as usize);
 
         for _ in 0..num_attach {
-            let parent = cursor.read_u16_le()?;
+            let parent = cursor.read_u16::<LittleEndian>()?;
             let position = Self::read_vector3(cursor)?;
             let normal = Self::read_vector3(cursor)?;
 
@@ -519,20 +519,20 @@ impl OofParser {
 
     /// Parse WBS (weapon batteries) chunk.
     fn parse_wbs(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
-        let num_batteries = cursor.read_u32_le()?;
+        let num_batteries = cursor.read_u32::<LittleEndian>()?;
         model.weapon_batteries.reserve(num_batteries as usize);
 
         for _ in 0..num_batteries {
-            let num_gps = cursor.read_u32_le()?;
+            let num_gps = cursor.read_u32::<LittleEndian>()?;
             let mut gun_points = Vec::with_capacity(num_gps as usize);
             for _ in 0..num_gps {
-                gun_points.push(cursor.read_u16_le()?);
+                gun_points.push(cursor.read_u16::<LittleEndian>()?);
             }
 
-            let num_turrets = cursor.read_u32_le()?;
+            let num_turrets = cursor.read_u32::<LittleEndian>()?;
             let mut turrets = Vec::with_capacity(num_turrets as usize);
             for _ in 0..num_turrets {
-                turrets.push(cursor.read_u16_le()?);
+                turrets.push(cursor.read_u16::<LittleEndian>()?);
             }
 
             model.weapon_batteries.push(WeaponBattery {
@@ -548,9 +548,9 @@ impl OofParser {
     fn parse_rot_anim(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
         // This is a timed animation format
         for i in 0..model.subobjects.len() {
-            let num_keyframes = cursor.read_u32_le()?;
-            let rot_track_min = cursor.read_i32_le()?;
-            let rot_track_max = cursor.read_i32_le()?;
+            let num_keyframes = cursor.read_u32::<LittleEndian>()?;
+            let rot_track_min = cursor.read_i32::<LittleEndian>()?;
+            let rot_track_max = cursor.read_i32::<LittleEndian>()?;
 
             if i < model.animations.len() {
                 model.animations[i].rot_track_min = rot_track_min;
@@ -569,9 +569,9 @@ impl OofParser {
                     .reserve(num_keyframes as usize);
 
                 for _ in 0..num_keyframes {
-                    let time = cursor.read_i32_le()?;
+                    let time = cursor.read_i32::<LittleEndian>()?;
                     let axis = Self::read_vector3(cursor)?;
-                    let angle = cursor.read_i32_le()?;
+                    let angle = cursor.read_i32::<LittleEndian>()?;
 
                     model.animations[i]
                         .rotation_keyframes
@@ -587,9 +587,9 @@ impl OofParser {
     fn parse_pos_anim(cursor: &mut Cursor<&[u8]>, model: &mut OofModel) -> Result<()> {
         // This is a timed animation format
         for i in 0..model.subobjects.len() {
-            let num_keyframes = cursor.read_u32_le()?;
-            let pos_track_min = cursor.read_i32_le()?;
-            let pos_track_max = cursor.read_i32_le()?;
+            let num_keyframes = cursor.read_u32::<LittleEndian>()?;
+            let pos_track_min = cursor.read_i32::<LittleEndian>()?;
+            let pos_track_max = cursor.read_i32::<LittleEndian>()?;
 
             if i < model.animations.len() {
                 model.animations[i].pos_track_min = pos_track_min;
@@ -608,7 +608,7 @@ impl OofParser {
                     .reserve(num_keyframes as usize);
 
                 for _ in 0..num_keyframes {
-                    let time = cursor.read_i32_le()?;
+                    let time = cursor.read_i32::<LittleEndian>()?;
                     let position = Self::read_vector3(cursor)?;
 
                     model.animations[i]
@@ -624,9 +624,9 @@ impl OofParser {
     /// Read a Vector3 from cursor.
     fn read_vector3(cursor: &mut Cursor<&[u8]>) -> Result<Vector3> {
         Ok(Vector3 {
-            x: cursor.read_f32_le()?,
-            y: cursor.read_f32_le()?,
-            z: cursor.read_f32_le()?,
+            x: cursor.read_f32::<LittleEndian>()?,
+            y: cursor.read_f32::<LittleEndian>()?,
+            z: cursor.read_f32::<LittleEndian>()?,
         })
     }
 }

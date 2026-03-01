@@ -43,7 +43,8 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use crate::io::ReadExt;
+use crate::io::skip_bytes;
+use byteorder::{BigEndian, ReadBytesExt};
 use std::io::{Cursor, Read};
 
 /// IFF chunk identifier (4-byte signature)
@@ -174,7 +175,7 @@ impl IffFile {
             )));
         }
 
-        let form_length = cursor.read_u32_be()?;
+        let form_length = cursor.read_u32::<BigEndian>()?;
         let form_end = cursor.position() + form_length as u64;
 
         // Read form type (ILBM or PBM)
@@ -197,7 +198,7 @@ impl IffFile {
         // Parse chunks
         while cursor.position() < form_end {
             let chunk_id = read_chunk_id(&mut cursor)?;
-            let chunk_len = cursor.read_u32_be()? as usize;
+            let chunk_len = cursor.read_u32::<BigEndian>()? as usize;
 
             match chunk_id {
                 ChunkId::BMHD => {
@@ -325,25 +326,25 @@ fn read_chunk_data(cursor: &mut Cursor<&[u8]>, len: usize) -> Result<Vec<u8>> {
 
 /// Skip a chunk
 fn skip_chunk(cursor: &mut Cursor<&[u8]>, len: usize) -> Result<()> {
-    cursor.skip_bytes(len)?;
+    skip_bytes(cursor, len)?;
     Ok(())
 }
 
 /// Parse BMHD (bitmap header) chunk
 fn parse_bmhd(cursor: &mut Cursor<&[u8]>) -> Result<BitmapHeader> {
-    let width = cursor.read_u16_be()?;
-    let height = cursor.read_u16_be()?;
-    let x = cursor.read_i16_be()?;
-    let y = cursor.read_i16_be()?;
+    let width = cursor.read_u16::<BigEndian>()?;
+    let height = cursor.read_u16::<BigEndian>()?;
+    let x = cursor.read_i16::<BigEndian>()?;
+    let y = cursor.read_i16::<BigEndian>()?;
     let bit_planes = cursor.read_u8()?;
     let masking_byte = cursor.read_u8()?;
     let compression_byte = cursor.read_u8()?;
     let _pad = cursor.read_u8()?; // padding byte
-    let transparent_color = cursor.read_u16_be()?;
+    let transparent_color = cursor.read_u16::<BigEndian>()?;
     let x_aspect = cursor.read_u8()?;
     let y_aspect = cursor.read_u8()?;
-    let page_width = cursor.read_u16_be()?;
-    let page_height = cursor.read_u16_be()?;
+    let page_width = cursor.read_u16::<BigEndian>()?;
+    let page_height = cursor.read_u16::<BigEndian>()?;
 
     let masking = match masking_byte {
         0 => Masking::None,

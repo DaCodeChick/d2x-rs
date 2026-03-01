@@ -45,8 +45,9 @@
 //! ```
 
 use crate::error::{AssetError, Result};
-use crate::io::ReadExt;
+use crate::io::{read_bytes, skip_bytes};
 use crate::validation::{validate_min, validate_range};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Cursor;
 
 /// Maximum number of tracks in an HMP file.
@@ -235,7 +236,7 @@ impl HmpFile {
         let mut cursor = Cursor::new(data);
 
         // Read signature (8 bytes)
-        let signature = cursor.read_bytes(8)?;
+        let signature = read_bytes(&mut cursor, 8)?;
         if signature != b"HMIMIDIP" {
             return Err(AssetError::InvalidFormat(format!(
                 "Invalid HMP signature: expected 'HMIMIDIP', got '{}'",
@@ -244,35 +245,35 @@ impl HmpFile {
         }
 
         // Seek to track count at offset 0x30
-        cursor.skip_bytes(0x30 - 8)?;
-        let num_tracks = cursor.read_u32_le()?;
+        skip_bytes(&mut cursor, 0x30 - 8)?;
+        let num_tracks = cursor.read_u32::<LittleEndian>()?;
         validate_range(num_tracks, 1, HMP_MAX_TRACKS as u32, "HMP track count")?;
 
         // Seek to MIDI division at offset 0x38
-        cursor.skip_bytes(0x38 - 0x34)?;
-        let midi_division = cursor.read_u32_le()?;
+        skip_bytes(&mut cursor, 0x38 - 0x34)?;
+        let midi_division = cursor.read_u32::<LittleEndian>()?;
 
         // Seek to track data at offset 0x308
-        cursor.skip_bytes(0x308 - 0x3C)?;
+        skip_bytes(&mut cursor, 0x308 - 0x3C)?;
 
         let mut tracks = Vec::with_capacity(num_tracks as usize);
 
         for _ in 0..num_tracks {
             // Skip 4 bytes
-            cursor.skip_bytes(4)?;
+            skip_bytes(&mut cursor, 4)?;
 
             // Read track length (includes 12-byte overhead)
-            let track_length = cursor.read_u32_le()?;
+            let track_length = cursor.read_u32::<LittleEndian>()?;
             validate_min(track_length, 12, "HMP track length")?;
 
             // Actual data length (minus header overhead)
             let data_length = (track_length - 12) as usize;
 
             // Skip 4 bytes
-            cursor.skip_bytes(4)?;
+            skip_bytes(&mut cursor, 4)?;
 
             // Read track data
-            let track_data = cursor.read_bytes(data_length)?;
+            let track_data = read_bytes(&mut cursor, data_length)?;
 
             tracks.push(HmpTrack { data: track_data });
         }

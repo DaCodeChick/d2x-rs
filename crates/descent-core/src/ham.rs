@@ -31,8 +31,9 @@
 //! ```
 
 use crate::error::Result;
-use crate::io::ReadExt;
+use crate::io::{read_bytes, skip_bytes};
 use crate::validation::{validate_max, validate_signature, validate_version};
+use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Cursor;
 
 // HAM file constants
@@ -81,26 +82,31 @@ impl HamFile {
         let mut cursor = Cursor::new(data);
 
         // Parse header
-        let signature = cursor.read_u32_le()?;
+        let signature = cursor.read_u32::<LittleEndian>()?;
         validate_signature(signature, HAM_SIGNATURE, "HAM")?;
 
-        let version = cursor.read_i32_le()?;
+        let version = cursor.read_i32::<LittleEndian>()?;
         validate_version(version, &[HAM_VERSION_DEMO, HAM_VERSION_STANDARD], "HAM")?;
 
         // Read sound offset if version < 3 (we'll skip embedded sounds for now)
         let _sound_offset = if version < HAM_VERSION_STANDARD {
-            Some(cursor.read_i32_le()?)
+            Some(cursor.read_i32::<LittleEndian>()?)
         } else {
             None
         };
 
         // Parse texture data
-        let texture_count = cursor.read_i32_le()? as usize;
+        let texture_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(texture_count, MAX_TEXTURES, "texture count", "MAX_TEXTURES")?;
 
         // Read bitmap indices
         let bitmap_indices = (0..texture_count)
-            .map(|_| cursor.read_u16_le().map(|index| BitmapIndex { index }))
+            .map(|_| {
+                cursor
+                    .read_u16::<LittleEndian>()
+                    .map(|index| BitmapIndex { index })
+                    .map_err(Into::into)
+            })
             .collect::<Result<Vec<_>>>()?;
 
         // Read texture info
@@ -110,14 +116,14 @@ impl HamFile {
             .collect::<Result<Vec<_>>>()?;
 
         // Parse sound indices
-        let sound_count = cursor.read_i32_le()? as usize;
+        let sound_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(sound_count, MAX_SOUNDS, "sound count", "MAX_SOUNDS")?;
 
-        let sound_indices = cursor.read_bytes(sound_count)?;
-        let alt_sound_indices = cursor.read_bytes(sound_count)?;
+        let sound_indices = read_bytes(&mut cursor, sound_count)?;
+        let alt_sound_indices = read_bytes(&mut cursor, sound_count)?;
 
         // Parse VClips (animation clips)
-        let vclip_count = cursor.read_i32_le()? as usize;
+        let vclip_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(vclip_count, MAX_VCLIPS, "VClip count", "MAX_VCLIPS")?;
 
         let vclips = (0..vclip_count)
@@ -125,15 +131,15 @@ impl HamFile {
             .collect::<Result<Vec<_>>>()?;
 
         // Skip effects section for now (would parse tEffectInfo array here)
-        let effect_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(effect_count * 64)?; // Approximate size
+        let effect_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, effect_count * 64)?; // Approximate size
 
         // Skip wall animations (would parse tWallEffect array here)
-        let wall_anim_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(wall_anim_count * 100)?; // Approximate size
+        let wall_anim_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, wall_anim_count * 100)?; // Approximate size
 
         // Parse robots (simplified)
-        let robot_count = cursor.read_i32_le()? as usize;
+        let robot_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(robot_count, MAX_ROBOTS, "robot count", "MAX_ROBOTS")?;
 
         let robots = (0..robot_count)
@@ -141,11 +147,11 @@ impl HamFile {
             .collect::<Result<Vec<_>>>()?;
 
         // Skip robot joints (would parse tJointPos array here)
-        let joint_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(joint_count * 8)?; // tJointPos size
+        let joint_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, joint_count * 8)?; // tJointPos size
 
         // Parse weapons (simplified)
-        let weapon_count = cursor.read_i32_le()? as usize;
+        let weapon_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(weapon_count, MAX_WEAPONS, "weapon count", "MAX_WEAPONS")?;
 
         let weapons = (0..weapon_count)
@@ -153,30 +159,30 @@ impl HamFile {
             .collect::<Result<Vec<_>>>()?;
 
         // Skip powerups section
-        let powerup_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(powerup_count * 16)?; // tPowerupTypeInfo size
+        let powerup_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, powerup_count * 16)?; // tPowerupTypeInfo size
 
         // Skip polygon models section
-        let model_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(model_count * 734)?; // CPolyModel size (approximate)
+        let model_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, model_count * 734)?; // CPolyModel size (approximate)
 
         // Skip model data for each model
         (0..model_count).try_for_each(|_| {
-            let model_data_size = cursor.read_i32_le()? as usize;
-            cursor.skip_bytes(model_data_size)
+            let model_data_size = cursor.read_i32::<LittleEndian>()? as usize;
+            skip_bytes(&mut cursor, model_data_size)
         })?;
 
         // Skip dying and dead model arrays
-        cursor.skip_bytes(model_count * 4)?; // dying models (i32 array)
-        cursor.skip_bytes(model_count * 4)?; // dead models (i32 array)
+        skip_bytes(&mut cursor, model_count * 4)?; // dying models (i32 array)
+        skip_bytes(&mut cursor, model_count * 4)?; // dead models (i32 array)
 
         // Skip cockpit gauges
-        let gauge_count = cursor.read_i32_le()? as usize;
-        cursor.skip_bytes(gauge_count * 2)?; // hires gauge indices (tBitmapIndex array)
-        cursor.skip_bytes(gauge_count * 2)?; // lores gauge indices (tBitmapIndex array)
+        let gauge_count = cursor.read_i32::<LittleEndian>()? as usize;
+        skip_bytes(&mut cursor, gauge_count * 2)?; // hires gauge indices (tBitmapIndex array)
+        skip_bytes(&mut cursor, gauge_count * 2)?; // lores gauge indices (tBitmapIndex array)
 
         // Parse object bitmaps section
-        let obj_bitmap_count = cursor.read_i32_le()? as usize;
+        let obj_bitmap_count = cursor.read_i32::<LittleEndian>()? as usize;
         validate_max(
             obj_bitmap_count,
             1000,
@@ -185,11 +191,16 @@ impl HamFile {
         )?;
 
         let obj_bitmap_indices = (0..obj_bitmap_count)
-            .map(|_| cursor.read_u16_le().map(|index| BitmapIndex { index }))
+            .map(|_| {
+                cursor
+                    .read_u16::<LittleEndian>()
+                    .map(|index| BitmapIndex { index })
+                    .map_err(Into::into)
+            })
             .collect::<Result<Vec<_>>>()?;
 
         let obj_bitmap_pointers = (0..obj_bitmap_count)
-            .map(|_| cursor.read_u16_le())
+            .map(|_| cursor.read_u16::<LittleEndian>().map_err(Into::into))
             .collect::<Result<Vec<_>>>()?;
 
         // Skip remaining sections (player ship, cockpits, etc.)
@@ -448,13 +459,13 @@ fn parse_texture_info(
     bitmap_index: BitmapIndex,
 ) -> Result<TextureInfo> {
     let flags = cursor.read_u8()?;
-    cursor.skip_bytes(3)?; // padding
-    let lighting = cursor.read_f32_le()?;
-    let damage = cursor.read_f32_le()?;
-    let effect_clip = cursor.read_i32_le()?;
-    let destroyed = cursor.read_i16_le()?;
-    let slide_u = cursor.read_i16_le()?;
-    let slide_v = cursor.read_i16_le()?;
+    skip_bytes(cursor, 3)?; // padding
+    let lighting = cursor.read_f32::<LittleEndian>()?;
+    let damage = cursor.read_f32::<LittleEndian>()?;
+    let effect_clip = cursor.read_i32::<LittleEndian>()?;
+    let destroyed = cursor.read_i16::<LittleEndian>()?;
+    let slide_u = cursor.read_i16::<LittleEndian>()?;
+    let slide_v = cursor.read_i16::<LittleEndian>()?;
 
     Ok(TextureInfo {
         bitmap_index,
@@ -469,19 +480,19 @@ fn parse_texture_info(
 }
 
 fn parse_vclip_info(cursor: &mut Cursor<&[u8]>) -> Result<VClipInfo> {
-    let total_time = cursor.read_f32_le()?;
-    let num_frames = cursor.read_i32_le()?;
-    let frame_time = cursor.read_f32_le()?;
-    let flags = cursor.read_i32_le()?;
-    let sound_num = cursor.read_i16_le()?;
+    let total_time = cursor.read_f32::<LittleEndian>()?;
+    let num_frames = cursor.read_i32::<LittleEndian>()?;
+    let frame_time = cursor.read_f32::<LittleEndian>()?;
+    let flags = cursor.read_i32::<LittleEndian>()?;
+    let sound_num = cursor.read_i16::<LittleEndian>()?;
 
     // Read frame indices (30 frames max for D2)
     let mut frame_indices = Vec::with_capacity(30);
     for _ in 0..30 {
-        frame_indices.push(cursor.read_i16_le()?);
+        frame_indices.push(cursor.read_i16::<LittleEndian>()?);
     }
 
-    let light_value = cursor.read_f32_le()?;
+    let light_value = cursor.read_f32::<LittleEndian>()?;
 
     Ok(VClipInfo {
         total_time,
@@ -495,41 +506,41 @@ fn parse_vclip_info(cursor: &mut Cursor<&[u8]>) -> Result<VClipInfo> {
 }
 
 fn parse_robot_info(cursor: &mut Cursor<&[u8]>) -> Result<RobotInfo> {
-    let model_num = cursor.read_i32_le()?;
+    let model_num = cursor.read_i32::<LittleEndian>()?;
 
     // Skip gun points (8 guns * 12 bytes per vector)
-    cursor.skip_bytes(8 * 12)?;
+    skip_bytes(cursor, 8 * 12)?;
 
     // Skip gun submodels
-    cursor.skip_bytes(8)?;
+    skip_bytes(cursor, 8)?;
 
     // Skip explosion info
-    cursor.skip_bytes(8)?;
+    skip_bytes(cursor, 8)?;
 
     let weapon_type = cursor.read_i8()?;
-    cursor.skip_bytes(1)?; // weapon_type2
+    skip_bytes(cursor, 1)?; // weapon_type2
     let n_guns = cursor.read_i8()?;
 
     // Skip contains info
-    cursor.skip_bytes(5)?;
+    skip_bytes(cursor, 5)?;
 
-    let score_value = cursor.read_i16_le()?;
+    let score_value = cursor.read_i16::<LittleEndian>()?;
 
     // Skip badass, energy_drain
-    cursor.skip_bytes(2)?;
+    skip_bytes(cursor, 2)?;
 
     // Read core stats
-    cursor.skip_bytes(4)?; // lighting
-    let strength = cursor.read_f32_le()?;
-    let mass = cursor.read_f32_le()?;
+    skip_bytes(cursor, 4)?; // lighting
+    let strength = cursor.read_f32::<LittleEndian>()?;
+    let mass = cursor.read_f32::<LittleEndian>()?;
 
     // Skip remaining fields (drag, AI params, sounds, animations, etc.)
-    cursor.skip_bytes(400)?; // Approximate remaining size
+    skip_bytes(cursor, 400)?; // Approximate remaining size
 
     let boss_flag = cursor.read_i8()?;
 
     // Skip to end of structure
-    cursor.skip_bytes(20)?;
+    skip_bytes(cursor, 20)?;
 
     Ok(RobotInfo {
         model_num,
@@ -544,64 +555,64 @@ fn parse_robot_info(cursor: &mut Cursor<&[u8]>) -> Result<RobotInfo> {
 
 fn parse_weapon_info(cursor: &mut Cursor<&[u8]>, _version: i32) -> Result<WeaponInfo> {
     // Skip render type, persistent
-    cursor.skip_bytes(2)?;
+    skip_bytes(cursor, 2)?;
 
-    let model_num = cursor.read_i16_le()?;
+    let model_num = cursor.read_i16::<LittleEndian>()?;
 
     // Skip model_num_inner
-    cursor.skip_bytes(2)?;
+    skip_bytes(cursor, 2)?;
 
     let flash_vclip = cursor.read_i8()?;
 
     // Skip robot_hit_vclip
-    cursor.skip_bytes(1)?;
+    skip_bytes(cursor, 1)?;
 
-    let flash_sound = cursor.read_i16_le()?;
+    let flash_sound = cursor.read_i16::<LittleEndian>()?;
 
     // Skip wall_hit_vclip, fire_count, robot_hit_sound
-    cursor.skip_bytes(5)?;
+    skip_bytes(cursor, 5)?;
 
     let ammo_usage = cursor.read_u8()?;
 
     // Skip weapon_vclip, wall_hit_sound, destroyable, matter, bounce, homing_flag
-    cursor.skip_bytes(8)?;
+    skip_bytes(cursor, 8)?;
 
     // Skip speedvar, flags, flash, afterburner_size, children (version >= 3)
-    cursor.skip_bytes(5)?;
+    skip_bytes(cursor, 5)?;
 
-    let energy_usage = cursor.read_f32_le()?;
-    let fire_wait = cursor.read_f32_le()?;
+    let energy_usage = cursor.read_f32::<LittleEndian>()?;
+    let fire_wait = cursor.read_f32::<LittleEndian>()?;
 
     // Skip multi_damage_scale, bitmap, blob_size, flash_size, impact_size
-    cursor.skip_bytes(18)?;
+    skip_bytes(cursor, 18)?;
 
     // Read strength array (5 difficulty levels)
     let strength = [
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
     ];
 
     // Read speed array (5 difficulty levels)
     let speed = [
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
-        cursor.read_f32_le()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
+        cursor.read_f32::<LittleEndian>()?,
     ];
 
-    let mass = cursor.read_f32_le()?;
+    let mass = cursor.read_f32::<LittleEndian>()?;
 
     // Skip drag, thrust, po_len_to_width_ratio
-    cursor.skip_bytes(12)?;
+    skip_bytes(cursor, 12)?;
 
-    let light = cursor.read_f32_le()?;
+    let light = cursor.read_f32::<LittleEndian>()?;
 
     // Skip remaining fields (lifetime, damage_radius, picture, hires_picture)
-    cursor.skip_bytes(18)?;
+    skip_bytes(cursor, 18)?;
 
     Ok(WeaponInfo {
         model_num,
