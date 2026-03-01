@@ -6,6 +6,8 @@
 //!
 //! ## Descent 1 & 2 (1995-1996) - Parallax Engine
 //! - **DHF**: Archive files containing game assets (DHF format)
+//! - **MVL**: Movie library archives containing MVE video files
+//! - **MVE**: Interplay movie format for cutscenes
 //! - **PIG**: Texture and bitmap data (RLE compressed, 8-bit indexed)
 //! - **HAM**: Game data definitions (robots, weapons, physics)
 //! - **Palette**: Color palettes for indexed bitmaps (6-bit RGB)
@@ -97,6 +99,8 @@ pub mod io;
 pub mod level;
 pub mod mission;
 pub mod models;
+pub mod mve;
+pub mod mvl;
 pub mod ogf;
 pub mod palette;
 pub mod pig;
@@ -114,11 +118,13 @@ pub use hog2::{Hog2Archive, Hog2Entry};
 pub use io::ReadExt;
 pub use level::{Level, Segment, Side};
 pub use mission::{MissionFile, SecretLevel};
+pub use mve::{MveChunk, MveFile, MveSegment, MveSegmentType};
+pub use mvl::{MvlArchive, MvlEntry};
 pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{
-    CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION, PlayerProfile, PlrProfile, PlxProfile,
+    PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
 };
 pub use pof::{
     FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap, SubmodelCall,

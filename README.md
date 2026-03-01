@@ -32,7 +32,8 @@ Currently implementing asset parsing foundation with comprehensive documentation
 - [x] Sound format parsers (D1/D2: SNDs 8-bit PCM, HMP/MIDI music)
 - [x] Mission file parser (D1/D2: .MSN and .MN2 text-based format)
 - [x] Player profile parser (D1/D2: .PLR binary, D2X-XL: .PLX text)
-- [x] Unit tests (92 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 13 Mission + 16 Player + 22 others)
+- [x] MVL/MVE movie file parsers (D1/D2: Interplay video cutscenes)
+- [x] Unit tests (97 tests passing: 6 DHF + 7 HOG2 + 7 OGF + 11 POF + 10 Sound + 13 Mission + 16 Player + 5 MVE/MVL + 22 others)
 - [x] Idiomatic Rust refactoring (traits, bitflags, enums)
 
 **🚧 In Progress:**
@@ -88,7 +89,7 @@ D2X-RS addresses these by:
 ```
 d2x-rs/
 ├── crates/
-│   ├── descent-core/       # Asset extraction (HOG/HOG2, PIG, HAM, POF, RDL/RL2, D3L, OGF, OOF)
+│   ├── descent-core/       # Asset extraction (HOG/HOG2, PIG, HAM, POF, RDL/RL2, MVE/MVL, D3L, OGF, OOF)
 │   ├── d2x-engine/       # Core engine (Bevy ECS systems)
 │   └── d2x-client/       # Game client application
 ├── editor/               # Level editor (C++23/Qt6) - Phase 2
@@ -194,6 +195,7 @@ Comprehensive documentation is available in the `docs/` directory:
   - **[formats/POF_FORMAT.md](docs/formats/POF_FORMAT.md)**: POF polygon model format (D1/D2)
   - **[formats/SOUND_FORMAT.md](docs/formats/SOUND_FORMAT.md)**: SNDs and HMP audio formats (D1/D2)
   - **[formats/MISSION_FORMAT.md](docs/formats/MISSION_FORMAT.md)**: MSN/MN2 mission files (D1/D2)
+  - **[formats/MVE_FORMAT.md](docs/formats/MVE_FORMAT.md)**: MVE/MVL movie formats (D1/D2)
   - **[formats/OGF_FORMAT.md](docs/formats/OGF_FORMAT.md)**: OGF texture format (D3)
 
 - **[networking/ARCHITECTURE.md](docs/networking/ARCHITECTURE.md)**: Networking design (planned)
@@ -216,8 +218,9 @@ Comprehensive documentation is available in the `docs/` directory:
 - [x] Mission file parser (.MSN/.MN2 text-based format)
 - [x] Palette handling (6-bit to 8-bit conversion)
 - [x] Fixed-point math support (16.16 format)
-- [x] 76 unit tests passing
-- [x] Format documentation (3200+ lines across 9 format files)
+- [x] MVL/MVE movie file parsers (Interplay video cutscenes)
+- [x] 97 unit tests passing
+- [x] Format documentation (3200+ lines across 10 format files)
 
 **🚧 D1/D2 Remaining (Priority):**
 - [ ] Savegame format parser
