@@ -1,6 +1,8 @@
 #include "Mine.h"
+#include "../io/LevelReader.h"
 #include <QDataStream>
 #include <QFile>
+#include <print>
 
 namespace dle {
 
@@ -179,15 +181,35 @@ bool Mine::load(const std::string& filename) {
         return false;
     }
     
+    // Peek at first 4 bytes to detect file format
+    char fileSignature[4];
+    if (file.read(fileSignature, 4) != 4) {
+        return false;
+    }
+    file.seek(0);  // Reset to beginning
+    
+    // Check if this is an LVLP file (has "LVLP" signature)
+    bool isLVLP = (fileSignature[0] == 'L' && fileSignature[1] == 'V' && 
+                   fileSignature[2] == 'L' && fileSignature[3] == 'P');
+    
+    if (!isLVLP) {
+        // This is a raw RDL/RL2 mine file - use LevelReader
+        file.close();
+        auto result = LevelReader::load(filename, *this);
+        if (!result) {
+            std::println(stderr, "Failed to load RDL/RL2 file: {}", result.error().message);
+            return false;
+        }
+        m_changesMade = false;
+        return true;
+    }
+    
+    // LVLP format - continue with existing parser
     QDataStream stream(&file);
     stream.setByteOrder(QDataStream::LittleEndian);
     
-    // Read LVLP signature
-    char fileSignature[4];
+    // Read LVLP signature (already validated above)
     stream.readRawData(fileSignature, 4);
-    if (fileSignature[0] != 'L' || fileSignature[1] != 'V' || fileSignature[2] != 'L' || fileSignature[3] != 'P') {
-        return false;
-    }
     
     // Read file version
     int32_t fileVersion;
