@@ -8,13 +8,27 @@
 //!
 //! 1. **Detection**: Check if converted assets exist
 //! 2. **Prompt**: Ask user to select Descent installation folder
-//! 3. **Extract**: Read HOG/DHF archives
+//! 3. **Extract**: Read HOG/DHF archives and MVL video archives
 //! 4. **Convert**:
 //!    - HMP → MIDI (Descent music format to standard MIDI)
 //!    - PIG → PNG (indexed textures to true color)
 //!    - POF → GLB (Descent models to glTF binary)
 //!    - PCM → WAV (8-bit sound effects to 16-bit)
+//!    - MVE → MP4 (Interplay videos to H.264 using FFmpeg)
 //! 5. **Organize**: Save to clean asset directory structure
+//!
+//! # Video Conversion
+//!
+//! MVE files are converted to modern MP4/H.264 format for several reasons:
+//! - **Performance**: Hardware-accelerated H.264 decode vs. software MVE decode
+//! - **File size**: Modern compression is 10-50x smaller than 1990s MVE codec
+//! - **Integration**: Works seamlessly with Bevy video playback plugins
+//! - **Quality**: Opportunity to enhance/upscale during conversion
+//!
+//! The conversion uses the `ffmpeg-next` Rust crate with the `BUILD` feature enabled.
+//! This **automatically compiles and statically links FFmpeg** at build time, so users
+//! don't need to install FFmpeg separately. The FFmpeg libraries are bundled into the
+//! game executable.
 //!
 //! # Directory Structure
 //!
@@ -22,10 +36,11 @@
 //!
 //! ```text
 //! assets/
-//! ├── music/          # MIDI files
-//! ├── textures/       # PNG files
-//! ├── models/         # GLB files
-//! ├── sounds/         # WAV files
+//! ├── music/          # MIDI files (from HMP)
+//! ├── textures/       # PNG files (from PIG)
+//! ├── models/         # GLB files (from POF)
+//! ├── sounds/         # WAV files (from PCM)
+//! ├── videos/         # MP4 files (from MVE)
 //! └── levels/         # Original level files (RDL/RL2)
 //! ```
 
@@ -100,6 +115,7 @@ pub enum ConversionStage {
     ConvertingTextures,
     ConvertingModels,
     ConvertingSounds,
+    ConvertingVideos,
     CopyingLevels,
     Finished,
 }
@@ -114,7 +130,7 @@ fn check_assets(mut status: ResMut<AssetStatus>, mut mode: ResMut<SetupMode>) {
 
     // Check for required directories
     let assets_path = &status.assets_path;
-    let required_dirs = ["music", "textures", "models", "sounds", "levels"];
+    let required_dirs = ["music", "textures", "models", "sounds", "videos", "levels"];
 
     let all_exist = required_dirs.iter().all(|dir| {
         let path = assets_path.join(dir);

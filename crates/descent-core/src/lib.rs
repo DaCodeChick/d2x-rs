@@ -124,7 +124,7 @@ pub use ogf::{OgfHeader, OgfTexture, PixelFormat, TextureFlags};
 pub use palette::Palette;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{
-    PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
+    CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION, PlayerProfile, PlrProfile, PlxProfile,
 };
 pub use pof::{
     FlatPolygon, GlowPoint, Opcode, PofModel, PofParser, Polygon, RodBitmap, SubmodelCall,

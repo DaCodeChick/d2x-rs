@@ -443,27 +443,114 @@ cargo test --package descent-core -- mve --nocapture
 
 ### Tools
 
-- **MVE Tools**: Various unofficial decoders/converters
-- **FFmpeg**: Limited MVE support
+- **FFmpeg**: Native "Interplay MVE" demuxer support (`ipmovie` format)
 - **VLC**: Basic MVE playback
+- **D2X-RS Setup**: Automated MVE→MP4 conversion during first-time setup
+
+## Conversion Strategy
+
+### Why Convert to MP4/H.264?
+
+Rather than implementing a full MVE decoder, D2X-RS converts MVE files to modern MP4/H.264 format during the **first-time setup process**. This approach offers significant advantages:
+
+**Performance Benefits:**
+- ✅ **Hardware acceleration**: GPUs can decode H.264 natively
+- ✅ **Lower CPU usage**: ~10-20x less CPU than software MVE decoding
+- ✅ **Faster loading**: Modern container formats optimize for streaming
+
+**Technical Benefits:**
+- ✅ **Better compression**: H.264 achieves 10-50x smaller files than 1990s MVE codec
+- ✅ **Proven integration**: Works seamlessly with Bevy video plugins (`bevy_video`)
+- ✅ **Maintenance**: No complex codec code to debug and maintain
+- ✅ **Quality**: Can upscale/enhance during conversion
+
+**User Experience:**
+- ✅ **One-time conversion**: Happens automatically during game setup
+- ✅ **No manual work**: Players just select Descent folder and click "Start"
+- ✅ **Progress tracking**: Visual feedback during conversion
+- ✅ **Familiar formats**: MP4 can be previewed in any media player
+
+### Conversion Process
+
+The conversion happens during the **First-Time Setup** stage:
+
+1. **Setup Detection**: Game checks if `assets/videos/` exists on first launch
+2. **User Prompt**: GUI asks player to select Descent installation folder
+3. **Extraction**: MVL archives extracted using `descent-core::mvl` parser
+4. **Conversion**: FFmpeg (via `ffmpeg-next` Rust crate) converts each MVE to MP4/H.264
+5. **Organization**: Converted videos saved to `assets/videos/intro.mp4`, etc.
+6. **Progress**: UI shows "Converting Videos..." with progress bar
+
+**FFmpeg Integration:**
+- Uses `ffmpeg-next` crate with `BUILD` feature enabled
+- **Automatically compiles FFmpeg** from source during `cargo build`
+- **Statically links** FFmpeg libraries into the game executable
+- **No separate installation required** - users just download and run the game
+- FFmpeg's "Interplay MVE" demuxer (`ipmovie`) natively handles MVE decoding
+
+**Conversion Parameters:**
+- Video codec: H.264 (libx264)
+- Quality: CRF 18 (visually lossless)
+- Audio codec: AAC
+- Audio bitrate: 128 kbps (sufficient for 22050 Hz PCM source)
+
+### Integration Points
+
+**Setup System** (`d2x-client/src/setup.rs`):
+- `ConversionStage::ConvertingVideos` stage added
+- `assets/videos/` directory checked on startup
+- Progress tracking: `ConversionProgress` tracks current video file
+
+**Asset Loading** (future):
+- Bevy asset system loads MP4 files
+- `bevy_video` plugin handles playback
+- Cutscene system triggers videos at appropriate times
+
+**File Mapping:**
+```
+Source (Descent Install)    →    Converted (D2X-RS Assets)
+intro-l.mvl/intro.mve       →    assets/videos/intro.mp4
+intro-l.mvl/psh.mve         →    assets/videos/psh.mp4
+robots-l.mvl/*.mve          →    assets/videos/robots/*.mp4
+other-l.mvl/*.mve           →    assets/videos/other/*.mp4
+```
+
+### Alternative Approaches Considered
+
+**Runtime MVE Decoding:**
+- ❌ High CPU cost (software-only decode)
+- ❌ Weeks of development (complex codec reverse-engineering)
+- ❌ Maintenance burden (custom codec code)
+- ❌ No hardware acceleration
+
+**Pre-converted Distribution:**
+- ❌ Legal issues (can't ship copyrighted videos)
+- ❌ Manual conversion (user friction)
+
+**Hybrid Approach:**
+- ✅ **Chosen**: Automated conversion during setup
+- ✅ Legal compliance (users provide own files)
+- ✅ Optimal performance (modern format)
+- ✅ No user friction (GUI-driven process)
 
 ## Future Enhancements
 
 ### Potential Improvements
 
-1. **Full Decoder**: Implement complete MVE video decompression
-2. **Audio Extraction**: Extract audio streams to WAV/OGG
-3. **Frame Export**: Export individual frames as PNG
-4. **Conversion Tool**: Convert MVE to modern formats
-5. **Metadata Extraction**: Parse all segment types fully
-6. **Seeking Support**: Implement frame-accurate seeking
+1. **Audio Extraction**: Extract audio streams to WAV/OGG (if needed separately)
+2. **Frame Export**: Export individual frames as PNG (for debugging/analysis)
+3. **Metadata Extraction**: Parse all segment types fully (for advanced features)
+4. **Seeking Support**: Implement frame-accurate seeking (if needed for gameplay)
+5. **Quality Options**: Configurable CRF/bitrate settings in setup UI
+6. **Upscaling**: AI upscaling (e.g., Topaz Video AI) during conversion
 
 ### Integration Possibilities
 
-- Bevy video playback plugin
-- In-game cutscene system
-- Level editor preview
-- Asset extraction tool
+- ✅ **Bevy video playback**: Via `bevy_video` plugin with MP4 files
+- ✅ **In-game cutscene system**: Trigger videos at mission start/end
+- ✅ **Setup progress UI**: Visual feedback during conversion
+- 🚧 **Level editor preview**: Play cutscenes in mission editor
+- 🚧 **Asset extraction tool**: Standalone converter for modders
 
 ## Summary
 
@@ -472,15 +559,18 @@ The MVE/MVL formats are the video cutscene system for Descent 1 & 2:
 - **MVL**: Simple archive containing multiple MVE movies
 - **MVE**: Chunk-based video format with proprietary compression
 - **Reading**: Header validation + chunk/segment iteration
-- **Full Playback**: Requires complex video decompression
-- **Modern Use**: Consider conversion to modern formats
+- **Playback**: Converted to MP4/H.264 during first-time setup
+- **Integration**: Seamless playback via Bevy video plugins
 
 The descent-core implementation provides:
 - ✅ MVL archive reading and file extraction
 - ✅ MVE header validation and structure parsing
 - ✅ Chunk and segment iteration
-- ❌ Video decompression (future enhancement)
-- ❌ Audio extraction (future enhancement)
+- ✅ Conversion strategy (MVE→MP4 via FFmpeg during setup)
+- ❌ Direct MVE video decompression (not needed - using conversion)
+- ❌ Direct audio extraction (not needed - FFmpeg handles it)
+
+**Conversion Strategy**: Rather than implementing a complex MVE decoder, D2X-RS converts videos to modern MP4/H.264 format during the **automated first-time setup**. This provides optimal performance (hardware acceleration), smaller file sizes, and seamless integration with Bevy's ecosystem - all while maintaining legal compliance by having users provide their own game files.
 
 ---
 

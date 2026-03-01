@@ -535,11 +535,11 @@ mod tests {
         let mut data = vec![];
         data.extend_from_slice(&[0x01, 0x00]); // OP_DEFPOINTS
         data.extend_from_slice(&[0x02, 0x00]); // count = 2
-                                               // Vertex 1: (1.0, 2.0, 3.0) in fixed-point
+        // Vertex 1: (1.0, 2.0, 3.0) in fixed-point
         data.extend_from_slice(&65536i32.to_le_bytes()); // x = 1.0
         data.extend_from_slice(&131072i32.to_le_bytes()); // y = 2.0
         data.extend_from_slice(&196608i32.to_le_bytes()); // z = 3.0
-                                                          // Vertex 2: (4.0, 5.0, 6.0) in fixed-point
+        // Vertex 2: (4.0, 5.0, 6.0) in fixed-point
         data.extend_from_slice(&262144i32.to_le_bytes()); // x = 4.0
         data.extend_from_slice(&327680i32.to_le_bytes()); // y = 5.0
         data.extend_from_slice(&393216i32.to_le_bytes()); // z = 6.0
@@ -565,13 +565,13 @@ mod tests {
         let mut data = vec![];
         data.extend_from_slice(&[0x02, 0x00]); // OP_FLATPOLY
         data.extend_from_slice(&[0x03, 0x00]); // nverts = 3
-                                               // Center: (0, 0, 0)
+        // Center: (0, 0, 0)
         data.extend_from_slice(&[0; 12]);
         // Normal: (0, 0, 1.0)
         data.extend_from_slice(&[0; 8]);
         data.extend_from_slice(&65536i32.to_le_bytes());
         data.extend_from_slice(&[0x0F, 0x00]); // color = 15
-                                               // Vertex indices: 0, 1, 2
+        // Vertex indices: 0, 1, 2
         data.extend_from_slice(&[0x00, 0x00]);
         data.extend_from_slice(&[0x01, 0x00]);
         data.extend_from_slice(&[0x02, 0x00]);
@@ -598,13 +598,13 @@ mod tests {
         let mut data = vec![];
         data.extend_from_slice(&[0x03, 0x00]); // OP_TMAPPOLY
         data.extend_from_slice(&[0x03, 0x00]); // nverts = 3
-                                               // Center: (0, 0, 0)
+        // Center: (0, 0, 0)
         data.extend_from_slice(&[0; 12]);
         // Normal: (0, 0, 1.0)
         data.extend_from_slice(&[0; 8]);
         data.extend_from_slice(&65536i32.to_le_bytes());
         data.extend_from_slice(&[0x05, 0x00]); // texture_id = 5
-                                               // Vertex indices: 0, 1, 2
+        // Vertex indices: 0, 1, 2
         data.extend_from_slice(&[0x00, 0x00]);
         data.extend_from_slice(&[0x01, 0x00]);
         data.extend_from_slice(&[0x02, 0x00]);
@@ -659,7 +659,7 @@ mod tests {
         let mut data = vec![];
         data.extend_from_slice(&[0x05, 0x00]); // OP_RODBM
         data.extend_from_slice(&[0x0A, 0x00]); // texture_id = 10
-                                               // bot_point: (1.0, 0, 0)
+        // bot_point: (1.0, 0, 0)
         data.extend_from_slice(&65536i32.to_le_bytes());
         data.extend_from_slice(&[0; 8]);
         // bot_width: 0.5
@@ -688,7 +688,7 @@ mod tests {
         data.extend_from_slice(&[0x02, 0x00]); // count = 2
         data.extend_from_slice(&[0x05, 0x00]); // start = 5
         data.extend_from_slice(&[0x00, 0x00]); // unused
-                                               // Vertex at index 5: (1.0, 2.0, 3.0)
+        // Vertex at index 5: (1.0, 2.0, 3.0)
         data.extend_from_slice(&65536i32.to_le_bytes());
         data.extend_from_slice(&131072i32.to_le_bytes());
         data.extend_from_slice(&196608i32.to_le_bytes());

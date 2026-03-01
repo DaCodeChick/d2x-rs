@@ -317,7 +317,7 @@ impl PlrProfile {
                 return Err(AssetError::InvalidFormat(format!(
                     "Unsupported PLR version: {}. Expected 17, 24, or 45",
                     version
-                )))
+                )));
             }
         }
 
