@@ -104,6 +104,7 @@ pub mod mvl;
 pub mod ogf;
 pub mod oof;
 pub mod palette;
+pub mod pcx;
 pub mod pig;
 pub mod player;
 pub mod pof;
@@ -137,6 +138,7 @@ pub use oof::{
     SubobjectAnimation, Vector3, WeaponBattery,
 };
 pub use palette::Palette;
+pub use pcx::PcxImage;
 pub use pig::{BitmapData, BitmapFlags, BitmapHeader, PigFile};
 pub use player::{
     PlayerProfile, PlrProfile, PlxProfile, CALLSIGN_LEN, COMPATIBLE_PLAYER_FILE_VERSION,
