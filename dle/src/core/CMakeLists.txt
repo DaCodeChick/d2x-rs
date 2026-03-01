@@ -20,6 +20,10 @@ add_library(dle_core STATIC
     mine/Object.cpp
     mine/Matcen.h
     mine/Matcen.cpp
+    
+    # I/O
+    io/LevelReader.h
+    io/LevelReader.cpp
 )
 
 target_include_directories(dle_core PUBLIC

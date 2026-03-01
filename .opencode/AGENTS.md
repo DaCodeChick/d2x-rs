@@ -357,10 +357,41 @@ pub fn parse_ase_model(data: &[u8]) -> Result<AseFile> {
 - **Standard**: Use C++23 exclusively
 - **Modern Idioms**: 
   - Use `<format>` and `<print>` for formatted output (no `printf`, no `iostream` operators)
-  - Use `std::expected` for error handling
+  - Use `std::expected` for error handling (**NEVER** use exceptions)
   - Use concepts for template constraints
   - Use ranges and views from `<ranges>`
   - Use `std::span` for array views
+
+- **Error Handling**: *ALWAYS* use `std::expected<T, ErrorType>`, *NEVER* use exceptions
+  - Define custom error types as simple structs with `std::string message` field
+  - Use `std::unexpected(error)` to return errors
+  - Return `{}` or `std::expected<void, E>{}` for success with no value
+  - Propagate errors explicitly (no `throw`, no `try`/`catch`)
+  - Example:
+    ```cpp
+    struct ParseError {
+        std::string message;
+    };
+    
+    std::expected<Data, ParseError> parseFile(const std::string& path) {
+        if (!fileExists(path)) {
+            return std::unexpected(ParseError{"File not found"});
+        }
+        // Parse and return data
+        return data;
+    }
+    
+    // Caller propagates errors explicitly
+    auto result = parseFile("level.rdl");
+    if (!result) {
+        std::println(stderr, "Error: {}", result.error().message);
+        return std::unexpected(result.error());
+    }
+    Data data = *result;  // or result.value()
+    ```
+  - **NEVER** use exceptions: no `throw`, no `try`, no `catch`, no `noexcept`
+  - **NEVER** use `-fno-exceptions` compiler flag (std::expected requires exception infrastructure)
+  - **ALWAYS** handle errors at call sites (check return values)
 
 - **STL Containers**: *Always* use modern STL containers
   - `std::vector` for dynamic arrays
