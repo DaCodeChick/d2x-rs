@@ -39,6 +39,12 @@
 use crate::error::{AssetError, Result};
 use std::str::FromStr;
 
+/// Type alias for vertex/normal vectors
+type Vec3 = [f32; 3];
+
+/// Type alias for parsing normals result
+type NormalsResult = (Vec<Vec3>, Vec<Vec3>);
+
 /// Root structure of an ASE file.
 #[derive(Debug, Clone)]
 pub struct AseFile {
@@ -345,9 +351,11 @@ impl<'a> AseParser<'a> {
 
     fn parse_map(&mut self) -> Result<AseMap> {
         self.skip_to_opening_brace()?;
-        let mut map = AseMap::default();
-        map.u_tiling = 1.0;
-        map.v_tiling = 1.0;
+        let mut map = AseMap {
+            u_tiling: 1.0,
+            v_tiling: 1.0,
+            ..Default::default()
+        };
 
         while let Some(line) = self.next_line() {
             let line = line.trim();
@@ -541,7 +549,7 @@ impl<'a> AseParser<'a> {
         Ok(tvertices)
     }
 
-    fn parse_normals(&mut self) -> Result<(Vec<[f32; 3]>, Vec<[f32; 3]>)> {
+    fn parse_normals(&mut self) -> Result<NormalsResult> {
         self.skip_to_opening_brace()?;
         let mut normals = Vec::new();
         let mut face_normals = Vec::new();
@@ -766,9 +774,11 @@ impl<'a> AseParser<'a> {
         self.lines.next()
     }
 
+    #[allow(dead_code)]
     fn expect_line(&mut self, expected: &str) -> Result<()> {
         // Check if the previous line already contained the expected token (inline)
         // This is handled by checking if we should skip this call
+        // Note: Currently unused but kept for potential future validation needs
 
         let line = self.next_line().ok_or_else(|| {
             AssetError::ParseError(format!(

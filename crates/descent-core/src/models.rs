@@ -140,10 +140,10 @@ impl Model {
     pub fn parse(data: Vec<u8>) -> Result<Self> {
         // Try ASE first (text file starting with *3DSMAX_ASCIIEXPORT)
         #[cfg(feature = "hires-assets")]
-        if let Ok(text) = std::str::from_utf8(&data) {
-            if text.trim_start().starts_with("*3DSMAX_ASCIIEXPORT") {
-                return Self::from_ase(text);
-            }
+        if let Ok(text) = std::str::from_utf8(&data)
+            && text.trim_start().starts_with("*3DSMAX_ASCIIEXPORT")
+        {
+            return Self::from_ase(text);
         }
 
         // Try POF (binary opcode format)

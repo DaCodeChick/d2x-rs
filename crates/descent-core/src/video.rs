@@ -236,27 +236,28 @@ impl VideoConverter {
                         video_stream_index,
                     )?;
                 }
-            } else if Some(stream.index()) == audio_stream_index {
-                if let Some(ref mut decoder) = audio_decoder {
-                    // Decode audio packet
-                    if let Some(audio_tb) = audio_decoder_time_base {
-                        packet.rescale_ts(audio_stream_time_base.unwrap(), audio_tb);
+            } else if Some(stream.index()) == audio_stream_index
+                && let Some(ref mut decoder) = audio_decoder
+            {
+                // Decode audio packet
+                if let Some(audio_tb) = audio_decoder_time_base {
+                    packet.rescale_ts(audio_stream_time_base.unwrap(), audio_tb);
+                }
+                decoder.send_packet(&packet)?;
+
+                let mut decoded_frame = ffmpeg_next::util::frame::audio::Audio::empty();
+                while decoder.receive_frame(&mut decoded_frame).is_ok() {
+                    audio_frame_count += 1;
+
+                    // Encode frame
+                    if let Some(ref mut encoder) = audio_encoder {
+                        encoder.send_frame(&decoded_frame)?;
+                        self.receive_and_write_audio_packets(
+                            encoder,
+                            &mut output_context,
+                            audio_stream_index.unwrap(),
+                        )?;
                     }
-                    decoder.send_packet(&packet)?;
-
-                    let mut decoded_frame = ffmpeg_next::util::frame::audio::Audio::empty();
-                    while decoder.receive_frame(&mut decoded_frame).is_ok() {
-                        audio_frame_count += 1;
-
-                        // Encode frame
-                        if let Some(ref mut encoder) = audio_encoder {
-                            encoder.send_frame(&decoded_frame)?;
-                            self.receive_and_write_audio_packets(
-                                encoder,
-                                &mut output_context,
-                                audio_stream_index.unwrap(),
-                            )?;
-                        }
                     }
                 }
             }

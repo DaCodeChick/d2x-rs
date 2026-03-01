@@ -390,7 +390,7 @@ impl ModelConverter {
             for face in &mesh.faces {
                 material_faces
                     .entry(face.material_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(face);
             }
 
@@ -452,15 +452,20 @@ impl ModelConverter {
                 }
 
                 // Determine material key based on whether we have textures
-                let material_key = if !uvs.is_empty()
-                    && geom_obj.material_ref.is_some()
-                    && geom_obj.material_ref.unwrap() < ase.materials.len()
-                {
-                    let mat = &ase.materials[geom_obj.material_ref.unwrap()];
-                    if mat.map_diffuse.is_some() {
-                        MaterialKey::Textured(material_id as u16)
+                let material_key = if !uvs.is_empty() {
+                    if let Some(mat_ref) = geom_obj.material_ref {
+                        if mat_ref < ase.materials.len() {
+                            let mat = &ase.materials[mat_ref];
+                            if mat.map_diffuse.is_some() {
+                                MaterialKey::Textured(material_id as u16)
+                            } else {
+                                // Use material color as flat shading
+                                MaterialKey::Flat(material_id as u16)
+                            }
+                        } else {
+                            MaterialKey::Flat(material_id as u16)
+                        }
                     } else {
-                        // Use material color as flat shading
                         MaterialKey::Flat(material_id as u16)
                     }
                 } else {

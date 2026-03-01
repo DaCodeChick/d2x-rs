@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let fix = Fix::from(3.14159);
+        let fix = Fix::from(std::f32::consts::PI);
         let s = format!("{}", fix);
         assert!(s.starts_with("3.14"));
     }

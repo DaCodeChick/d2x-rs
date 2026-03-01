@@ -46,10 +46,13 @@ struct TgaHeader {
     id_length: u8,
     color_map_type: u8,
     image_type: u8,
+    #[allow(dead_code)]
     color_map_origin: u16,
     color_map_length: u16,
     color_map_depth: u8,
+    #[allow(dead_code)]
     x_origin: u16,
+    #[allow(dead_code)]
     y_origin: u16,
     width: u16,
     height: u16,
@@ -60,6 +63,7 @@ struct TgaHeader {
 /// TGA image types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
+#[allow(dead_code)]
 enum ImageType {
     NoImage = 0,
     UncompressedColorMapped = 1,

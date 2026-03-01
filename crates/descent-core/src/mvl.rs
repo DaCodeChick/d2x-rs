@@ -96,7 +96,7 @@ impl MvlArchive {
         file.read_exact(&mut num_files_bytes)?;
         let num_files = i32::from_le_bytes(num_files_bytes);
 
-        if num_files < 0 || num_files > 1000 {
+        if !(0..=1000).contains(&num_files) {
             return Err(AssetError::InvalidFormat(format!(
                 "Invalid number of files in MVL: {}",
                 num_files
