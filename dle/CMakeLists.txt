@@ -33,6 +33,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_subdirectory(src/core)
 add_subdirectory(src/render)
 add_subdirectory(src/ui)
+add_subdirectory(src/plugins/imageformats)
 
 # Main executable
 add_executable(dle
