@@ -355,6 +355,22 @@ pub fn parse_ase_model(data: &[u8]) -> Result<AseFile> {
 ### C++ (Level Editor Only - Phase 2)
 
 - **Standard**: Use C++23 exclusively
+
+- **Header Guards**: *ALWAYS* use `#pragma once`, *NEVER* use `#ifdef` include guards
+  - Modern compilers universally support `#pragma once`
+  - Simpler, less error-prone than macro-based guards
+  - No macro pollution
+  - Example:
+    ```cpp
+    #pragma once
+    
+    #include <string>
+    
+    class MyClass {
+        // ...
+    };
+    ```
+
 - **Modern Idioms**: 
   - Use `<format>` and `<print>` for formatted output (no `printf`, no `iostream` operators)
   - Use `std::expected` for error handling (**NEVER** use exceptions)
