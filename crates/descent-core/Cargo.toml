@@ -17,7 +17,6 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Binary parsing
-winnow = { workspace = true }
 byteorder = "1.5"
 
 # Math

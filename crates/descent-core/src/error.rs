@@ -68,12 +68,3 @@ pub enum AssetError {
     #[error("{0}")]
     Other(String),
 }
-
-impl<I, E> From<winnow::error::ParseError<I, E>> for AssetError
-where
-    E: std::fmt::Display,
-{
-    fn from(err: winnow::error::ParseError<I, E>) -> Self {
-        AssetError::ParseError(format!("{}", err.inner()))
-    }
-}
