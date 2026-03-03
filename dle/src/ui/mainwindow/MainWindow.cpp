@@ -3,6 +3,7 @@
 #include "../toolpanel/ToolPanel.h"
 #include "../texturebrowser/TextureBrowser.h"
 #include "../segmentinfo/SegmentInfoPanel.h"
+#include "../properties/PropertiesPanel.h"
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QDockWidget>
@@ -16,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_toolPanel(nullptr)
     , m_textureBrowser(nullptr)
     , m_segmentInfoPanel(nullptr)
+    , m_propertiesPanel(nullptr)
 {
     ui->setupUi(this);
     setupConnections();
@@ -75,6 +77,10 @@ void MainWindow::setupDockWidgets() {
     m_segmentInfoPanel = new SegmentInfoPanel(this);
     ui->segmentInfoDock->setWidget(m_segmentInfoPanel);
     
+    // Replace the placeholder in propertiesDock with actual PropertiesPanel
+    m_propertiesPanel = new PropertiesPanel(this);
+    ui->propertiesDock->setWidget(m_propertiesPanel);
+    
     // Connect tool panel visibility to menu action if it exists
     // Note: We'll need to add actionToggleToolPanel to the UI file later
     // For now, the tool panel is visible by default
@@ -83,6 +89,7 @@ void MainWindow::setupDockWidgets() {
     if (m_mine) {
         m_toolPanel->setMine(m_mine.get());
         m_segmentInfoPanel->setMine(m_mine.get());
+        m_propertiesPanel->setMine(m_mine.get());
     }
     
     // Connect texture browser signals

@@ -15,6 +15,7 @@ namespace dle {
 class ToolPanel;
 class TextureBrowser;
 class SegmentInfoPanel;
+class PropertiesPanel;
 
 /**
  * @brief Main window for the Descent Level Editor
@@ -79,6 +80,7 @@ private:
     ToolPanel* m_toolPanel;
     TextureBrowser* m_textureBrowser;
     SegmentInfoPanel* m_segmentInfoPanel;
+    PropertiesPanel* m_propertiesPanel;
 };
 
 } // namespace dle
