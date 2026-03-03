@@ -3,6 +3,7 @@
 #include "WallTool.h"
 #include "TriggerTool.h"
 #include "ObjectTool.h"
+#include "DiagnosticsTool.h"
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -18,17 +19,6 @@ public:
     explicit TextureTool(QWidget *parent = nullptr) : QWidget(parent) {
         auto *layout = new QVBoxLayout(this);
         layout->addWidget(new QLabel("Texture Tool\n\nAlign and configure textures.", this));
-        setLayout(layout);
-    }
-    void setMine(Mine*) {}
-    void refresh() {}
-};
-
-class DiagnosticsTool : public QWidget {
-public:
-    explicit DiagnosticsTool(QWidget *parent = nullptr) : QWidget(parent) {
-        auto *layout = new QVBoxLayout(this);
-        layout->addWidget(new QLabel("Diagnostics Tool\n\nLevel validation and statistics.", this));
         setLayout(layout);
     }
     void setMine(Mine*) {}
@@ -93,7 +83,7 @@ void ToolPanel::setMine(const Mine* mine) {
     if (m_triggerTool) m_triggerTool->setMine(mine);
     if (m_objectTool) m_objectTool->setMine(mine);
     if (m_textureTool) m_textureTool->setMine(const_cast<Mine*>(mine));
-    if (m_diagnosticsTool) m_diagnosticsTool->setMine(const_cast<Mine*>(mine));
+    if (m_diagnosticsTool) m_diagnosticsTool->setMine(mine);
     
     refreshAll();
 }

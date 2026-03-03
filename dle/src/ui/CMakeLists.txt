@@ -19,6 +19,9 @@ add_library(dle_ui STATIC
     toolpanel/ObjectTool.h
     toolpanel/ObjectTool.cpp
     toolpanel/ObjectTool.ui
+    toolpanel/DiagnosticsTool.h
+    toolpanel/DiagnosticsTool.cpp
+    toolpanel/DiagnosticsTool.ui
 )
 
 target_include_directories(dle_ui PUBLIC
