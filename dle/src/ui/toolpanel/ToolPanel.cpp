@@ -4,6 +4,7 @@
 #include "TriggerTool.h"
 #include "ObjectTool.h"
 #include "DiagnosticsTool.h"
+#include "EffectTool.h"
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -52,6 +53,7 @@ void ToolPanel::setupUi() {
     m_triggerTool = std::make_unique<TriggerTool>(m_tabWidget);
     m_objectTool = std::make_unique<ObjectTool>(m_tabWidget);
     m_textureTool = std::make_unique<TextureTool>(m_tabWidget);
+    m_effectTool = std::make_unique<EffectTool>(m_tabWidget);
     m_diagnosticsTool = std::make_unique<DiagnosticsTool>(m_tabWidget);
     
     // Add tabs
@@ -60,6 +62,7 @@ void ToolPanel::setupUi() {
     m_tabWidget->addTab(m_triggerTool.get(), "Trigger");
     m_tabWidget->addTab(m_objectTool.get(), "Object");
     m_tabWidget->addTab(m_textureTool.get(), "Texture");
+    m_tabWidget->addTab(m_effectTool.get(), "Effects");
     m_tabWidget->addTab(m_diagnosticsTool.get(), "Diagnostics");
     
     setWidget(centralWidget);
@@ -83,6 +86,7 @@ void ToolPanel::setMine(const Mine* mine) {
     if (m_triggerTool) m_triggerTool->setMine(mine);
     if (m_objectTool) m_objectTool->setMine(mine);
     if (m_textureTool) m_textureTool->setMine(const_cast<Mine*>(mine));
+    if (m_effectTool) m_effectTool->setMine(mine);
     if (m_diagnosticsTool) m_diagnosticsTool->setMine(mine);
     
     refreshAll();
@@ -96,6 +100,7 @@ void ToolPanel::refreshAll() {
     if (m_triggerTool) m_triggerTool->refresh();
     if (m_objectTool) m_objectTool->refresh();
     if (m_textureTool) m_textureTool->refresh();
+    if (m_effectTool) m_effectTool->refresh();
     if (m_diagnosticsTool) m_diagnosticsTool->refresh();
 }
 
@@ -109,7 +114,8 @@ void ToolPanel::refreshCurrentTab() {
         case 2: if (m_triggerTool) m_triggerTool->refresh(); break;
         case 3: if (m_objectTool) m_objectTool->refresh(); break;
         case 4: if (m_textureTool) m_textureTool->refresh(); break;
-        case 5: if (m_diagnosticsTool) m_diagnosticsTool->refresh(); break;
+        case 5: if (m_effectTool) m_effectTool->refresh(); break;
+        case 6: if (m_diagnosticsTool) m_diagnosticsTool->refresh(); break;
     }
 }
 

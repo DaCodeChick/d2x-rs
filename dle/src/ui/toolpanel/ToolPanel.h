@@ -15,6 +15,7 @@ class WallTool;
 class TriggerTool;
 class ObjectTool;
 class TextureTool;
+class EffectTool;
 class DiagnosticsTool;
 
 /**
@@ -87,6 +88,7 @@ private:
     std::unique_ptr<TriggerTool> m_triggerTool;
     std::unique_ptr<ObjectTool> m_objectTool;
     std::unique_ptr<TextureTool> m_textureTool;
+    std::unique_ptr<EffectTool> m_effectTool;
     std::unique_ptr<DiagnosticsTool> m_diagnosticsTool;
 };
 

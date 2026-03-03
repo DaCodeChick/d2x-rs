@@ -22,6 +22,9 @@ add_library(dle_ui STATIC
     toolpanel/DiagnosticsTool.h
     toolpanel/DiagnosticsTool.cpp
     toolpanel/DiagnosticsTool.ui
+    toolpanel/EffectTool.h
+    toolpanel/EffectTool.cpp
+    toolpanel/EffectTool.ui
     texturebrowser/TextureBrowser.h
     texturebrowser/TextureBrowser.cpp
     segmentinfo/SegmentInfoPanel.h

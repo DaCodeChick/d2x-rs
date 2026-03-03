@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>EffectTool</class>
+ <widget class="QWidget" name="EffectTool">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>300</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>6</number>
+   </property>
+   <property name="leftMargin">
+    <number>6</number>
+   </property>
+   <property name="topMargin">
+    <number>6</number>
+   </property>
+   <property name="rightMargin">
+    <number>6</number>
+   </property>
+   <property name="bottomMargin">
+    <number>6</number>
+   </property>
+   
+   <item>
+    <widget class="QLabel" name="labelTitle">
+     <property name="text">
+      <string>Object Effects</string>
+     </property>
+     <property name="styleSheet">
+      <string>font-weight: bold; font-size: 11pt;</string>
+     </property>
+    </widget>
+   </item>
+   
+   <item>
+    <widget class="QGroupBox" name="groupEffectObject">
+     <property name="title">
+      <string>Effect Object</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelObject">
+        <property name="text">
+         <string>Object:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboObjects">
+        <property name="toolTip">
+         <string>Select object to edit effects</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <widget class="QTabWidget" name="tabEffectTypes">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     
+     <!-- Particle Effects Tab -->
+     <widget class="QWidget" name="tabParticles">
+      <attribute name="title">
+       <string>Particles</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="particlesLayout">
+       <item>
+        <widget class="QGroupBox" name="groupParticleType">
+         <property name="title">
+          <string>Particle Type</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_2">
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelParticleType">
+            <property name="text">
+             <string>Type:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="comboParticleType">
+            <item>
+             <property name="text">
+              <string>None</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Smoke</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Fire</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Sparks</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       
+       <item>
+        <widget class="QLabel" name="labelParticlePlaceholder">
+         <property name="text">
+          <string>Particle effect controls will appear here.
+Includes: size, density, color, velocity, life, etc.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignTop|Qt::AlignLeft</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       
+       <item>
+        <spacer name="verticalSpacer_1">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     
+     <!-- Lightning Effects Tab -->
+     <widget class="QWidget" name="tabLightning">
+      <attribute name="title">
+       <string>Lightning</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="lightningLayout">
+       <item>
+        <widget class="QGroupBox" name="groupLightningStyle">
+         <property name="title">
+          <string>Lightning Style</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_3">
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelLightningStyle">
+            <property name="text">
+             <string>Style:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="comboLightningStyle">
+            <item>
+             <property name="text">
+              <string>None</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bolt</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Arc</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       
+       <item>
+        <widget class="QLabel" name="labelLightningPlaceholder">
+         <property name="text">
+          <string>Lightning effect controls will appear here.
+Includes: target, color, intensity, duration, etc.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignTop|Qt::AlignLeft</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       
+       <item>
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+     
+     <!-- Sound Effects Tab -->
+     <widget class="QWidget" name="tabSound">
+      <attribute name="title">
+       <string>Sound</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="soundLayout">
+       <item>
+        <widget class="QGroupBox" name="groupSoundVolume">
+         <property name="title">
+          <string>Sound Volume</string>
+         </property>
+         <layout class="QFormLayout" name="formLayout_4">
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelVolume">
+            <property name="text">
+             <string>Volume:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSlider" name="sliderVolume">
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>50</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       
+       <item>
+        <widget class="QLabel" name="labelSoundPlaceholder">
+         <property name="text">
+          <string>Sound effect controls will appear here.
+Includes: sound file, volume, loop, range, etc.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignTop|Qt::AlignLeft</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       
+       <item>
+        <spacer name="verticalSpacer_3">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   
+   <item>
+    <widget class="QGroupBox" name="groupActions">
+     <property name="title">
+      <string>Actions</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QPushButton" name="btnAdd">
+        <property name="text">
+         <string>Add</string>
+        </property>
+        <property name="toolTip">
+         <string>Add effect to object</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnDelete">
+        <property name="text">
+         <string>Delete</string>
+        </property>
+        <property name="toolTip">
+         <string>Remove effect from object</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnCopy">
+        <property name="text">
+         <string>Copy</string>
+        </property>
+        <property name="toolTip">
+         <string>Copy effect settings</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnPaste">
+        <property name="text">
+         <string>Paste</string>
+        </property>
+        <property name="toolTip">
+         <string>Paste effect settings</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
