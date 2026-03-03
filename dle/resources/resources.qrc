@@ -1,0 +1,11 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/icons">
+        <file>icons/dle.ico</file>
+        <file>icons/dlexp.ico</file>
+    </qresource>
+    <qresource prefix="/toolbars">
+        <file>toolbars/toolbar.bmp</file>
+        <file>toolbars/toolbar_large.bmp</file>
+    </qresource>
+</RCC>

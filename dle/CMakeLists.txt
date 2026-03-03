@@ -38,6 +38,7 @@ add_subdirectory(src/plugins/imageformats)
 # Main executable
 add_executable(dle
     src/main.cpp
+    resources/resources.qrc
 )
 
 target_link_libraries(dle PRIVATE
