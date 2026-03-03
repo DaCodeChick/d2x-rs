@@ -2,6 +2,7 @@
 #include "ui_MainWindow.h"
 #include "../toolpanel/ToolPanel.h"
 #include "../texturebrowser/TextureBrowser.h"
+#include "../segmentinfo/SegmentInfoPanel.h"
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QDockWidget>
@@ -14,6 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_mine(std::make_unique<Mine>())
     , m_toolPanel(nullptr)
     , m_textureBrowser(nullptr)
+    , m_segmentInfoPanel(nullptr)
 {
     ui->setupUi(this);
     setupConnections();
@@ -69,6 +71,10 @@ void MainWindow::setupDockWidgets() {
     // Stack the texture browser above the tool panel
     tabifyDockWidget(m_toolPanel, textureBrowserDock);
     
+    // Replace the placeholder in segmentInfoDock with actual SegmentInfoPanel
+    m_segmentInfoPanel = new SegmentInfoPanel(this);
+    ui->segmentInfoDock->setWidget(m_segmentInfoPanel);
+    
     // Connect tool panel visibility to menu action if it exists
     // Note: We'll need to add actionToggleToolPanel to the UI file later
     // For now, the tool panel is visible by default
@@ -76,6 +82,7 @@ void MainWindow::setupDockWidgets() {
     // Connect tool panel to mine data
     if (m_mine) {
         m_toolPanel->setMine(m_mine.get());
+        m_segmentInfoPanel->setMine(m_mine.get());
     }
     
     // Connect texture browser signals

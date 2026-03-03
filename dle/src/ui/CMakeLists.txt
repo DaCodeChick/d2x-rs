@@ -24,6 +24,8 @@ add_library(dle_ui STATIC
     toolpanel/DiagnosticsTool.ui
     texturebrowser/TextureBrowser.h
     texturebrowser/TextureBrowser.cpp
+    segmentinfo/SegmentInfoPanel.h
+    segmentinfo/SegmentInfoPanel.cpp
 )
 
 target_include_directories(dle_ui PUBLIC

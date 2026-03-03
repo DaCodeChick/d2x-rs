@@ -14,6 +14,7 @@ namespace dle {
 
 class ToolPanel;
 class TextureBrowser;
+class SegmentInfoPanel;
 
 /**
  * @brief Main window for the Descent Level Editor
@@ -77,6 +78,7 @@ private:
     // Dock widgets
     ToolPanel* m_toolPanel;
     TextureBrowser* m_textureBrowser;
+    SegmentInfoPanel* m_segmentInfoPanel;
 };
 
 } // namespace dle
