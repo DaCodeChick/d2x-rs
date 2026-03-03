@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>WallTool</class>
+ <widget class="QWidget" name="WallTool">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>280</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>4</number>
+   </property>
+   <property name="leftMargin">
+    <number>4</number>
+   </property>
+   <property name="topMargin">
+    <number>4</number>
+   </property>
+   <property name="rightMargin">
+    <number>4</number>
+   </property>
+   <property name="bottomMargin">
+    <number>4</number>
+   </property>
+   
+   <!-- Wall Data Group -->
+   <item>
+    <widget class="QGroupBox" name="wallDataGroup">
+     <property name="title">
+      <string>Wall Data</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="labelWallId">
+        <property name="text">
+         <string>Wall ID:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QSpinBox" name="wallIdSpin">
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>65535</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="labelType">
+        <property name="text">
+         <string>Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="typeCombo">
+        <item>
+         <property name="text">
+          <string>None</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Normal</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Blastable</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Door</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Illusion</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Open</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Closed</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Overlay</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Cloaked</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Colored (D2X-XL)</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="labelClip">
+        <property name="text">
+         <string>Clip:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QSpinBox" name="clipSpin">
+        <property name="minimum">
+         <number>-1</number>
+        </property>
+        <property name="maximum">
+         <number>127</number>
+        </property>
+        <property name="specialValueText">
+         <string>None</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="labelStrength">
+        <property name="text">
+         <string>Strength:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QDoubleSpinBox" name="strengthSpin">
+        <property name="suffix">
+         <string>%</string>
+        </property>
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>200</number>
+        </property>
+        <property name="singleStep">
+         <number>0.1</number>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="labelCloak">
+        <property name="text">
+         <string>Cloak:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QSpinBox" name="cloakSpin">
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>31</number>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Keys Group -->
+   <item>
+    <widget class="QGroupBox" name="keysGroup">
+     <property name="title">
+      <string>Keys Required</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QCheckBox" name="noKeyCheck">
+        <property name="text">
+         <string>No Key</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="blueKeyCheck">
+        <property name="text">
+         <string>Blue Key</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="redKeyCheck">
+        <property name="text">
+         <string>Red Key</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="goldKeyCheck">
+        <property name="text">
+         <string>Gold Key</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Flags Group -->
+   <item>
+    <widget class="QGroupBox" name="flagsGroup">
+     <property name="title">
+      <string>Flags</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_3">
+      <item>
+       <widget class="QCheckBox" name="blastedCheck">
+        <property name="text">
+         <string>Blasted</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="doorOpenCheck">
+        <property name="text">
+         <string>Door Open</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="doorLockedCheck">
+        <property name="text">
+         <string>Door Locked</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="doorAutoCheck">
+        <property name="text">
+         <string>Door Auto</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="illusionOffCheck">
+        <property name="text">
+         <string>Illusion Off</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="switchCheck">
+        <property name="text">
+         <string>Switch Blasted</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="buddyProofCheck">
+        <property name="text">
+         <string>Buddy Proof</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="ignoreMarkerCheck">
+        <property name="text">
+         <string>Ignore Marker</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <!-- Actions Group -->
+   <item>
+    <widget class="QGroupBox" name="actionsGroup">
+     <property name="title">
+      <string>Actions</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QPushButton" name="addWallBtn">
+        <property name="text">
+         <string>Add Wall</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="deleteWallBtn">
+        <property name="text">
+         <string>Delete Wall</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="otherSideBtn">
+        <property name="text">
+         <string>Other Side</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
