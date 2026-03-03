@@ -12,6 +12,8 @@ QT_END_NAMESPACE
 
 namespace dle {
 
+class ToolPanel;
+
 /**
  * @brief Main window for the Descent Level Editor
  * 
@@ -53,12 +55,14 @@ private slots:
     void onToggleTextureBar();
     void onToggleProperties();
     void onToggleSegmentInfo();
+    void onToggleToolPanel();
     
     // Help menu
     void onHelpAbout();
 
 private:
     void setupConnections();
+    void setupDockWidgets();
     void updateWindowTitle();
     void newLevel();
     bool openLevel(const QString& filename);
@@ -68,6 +72,9 @@ private:
     std::unique_ptr<Ui::MainWindow> ui;
     std::unique_ptr<Mine> m_mine;
     QString m_currentFilename;
+    
+    // Dock widgets
+    ToolPanel* m_toolPanel;
 };
 
 } // namespace dle

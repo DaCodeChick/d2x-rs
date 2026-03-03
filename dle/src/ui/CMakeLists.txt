@@ -5,6 +5,8 @@ add_library(dle_ui STATIC
     mainwindow/MainWindow.h
     mainwindow/MainWindow.cpp
     mainwindow/MainWindow.ui
+    toolpanel/ToolPanel.h
+    toolpanel/ToolPanel.cpp
 )
 
 target_include_directories(dle_ui PUBLIC

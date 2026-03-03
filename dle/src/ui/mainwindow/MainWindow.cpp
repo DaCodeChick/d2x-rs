@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
+#include "../toolpanel/ToolPanel.h"
 #include <QMessageBox>
 #include <QFileDialog>
 
@@ -9,9 +10,11 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(std::make_unique<Ui::MainWindow>())
     , m_mine(std::make_unique<Mine>())
+    , m_toolPanel(nullptr)
 {
     ui->setupUi(this);
     setupConnections();
+    setupDockWidgets();
     
     // Create a new default level
     newLevel();
@@ -49,6 +52,21 @@ void MainWindow::setupConnections() {
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::onHelpAbout);
 }
 
+void MainWindow::setupDockWidgets() {
+    // Create tool panel dock widget
+    m_toolPanel = new ToolPanel(this);
+    addDockWidget(Qt::LeftDockWidgetArea, m_toolPanel);
+    
+    // Connect tool panel visibility to menu action if it exists
+    // Note: We'll need to add actionToggleToolPanel to the UI file later
+    // For now, the tool panel is visible by default
+    
+    // Connect tool panel to mine data
+    if (m_mine) {
+        m_toolPanel->setMine(m_mine.get());
+    }
+}
+
 void MainWindow::updateWindowTitle() {
     QString title = "DLE - Descent Level Editor";
     if (!m_currentFilename.isEmpty()) {
@@ -74,6 +92,11 @@ void MainWindow::newLevel() {
         ui->viewport->setMine(m_mine.get());
     }
     
+    // Update tool panel with new mine
+    if (m_toolPanel) {
+        m_toolPanel->setMine(m_mine.get());
+    }
+    
     ui->statusbar->showMessage("New level created", 2000);
 }
 
@@ -89,6 +112,11 @@ bool MainWindow::openLevel(const QString& filename) {
     // Update viewport with loaded mine
     if (ui->viewport) {
         ui->viewport->setMine(m_mine.get());
+    }
+    
+    // Update tool panel with loaded mine
+    if (m_toolPanel) {
+        m_toolPanel->setMine(m_mine.get());
     }
     
     ui->statusbar->showMessage("Loaded: " + filename, 2000);
@@ -267,6 +295,14 @@ void MainWindow::onToggleSegmentInfo() {
     bool visible = ui->actionToggleSegmentInfo->isChecked();
     ui->segmentInfoDock->setVisible(visible);
     ui->statusbar->showMessage(visible ? "Segment info shown" : "Segment info hidden", 2000);
+}
+
+void MainWindow::onToggleToolPanel() {
+    if (m_toolPanel) {
+        bool visible = !m_toolPanel->isVisible();
+        m_toolPanel->setVisible(visible);
+        ui->statusbar->showMessage(visible ? "Tool panel shown" : "Tool panel hidden", 2000);
+    }
 }
 
 } // namespace dle
