@@ -2,6 +2,7 @@
 #include "SegmentTool.h"
 #include "WallTool.h"
 #include "TriggerTool.h"
+#include "ObjectTool.h"
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -11,17 +12,6 @@ namespace dle {
 
 // Forward declare stub tool classes
 // These will be replaced with real implementations
-
-class ObjectTool : public QWidget {
-public:
-    explicit ObjectTool(QWidget *parent = nullptr) : QWidget(parent) {
-        auto *layout = new QVBoxLayout(this);
-        layout->addWidget(new QLabel("Object Tool\n\nPlace and configure objects.", this));
-        setLayout(layout);
-    }
-    void setMine(Mine*) {}
-    void refresh() {}
-};
 
 class TextureTool : public QWidget {
 public:
@@ -101,7 +91,7 @@ void ToolPanel::setMine(const Mine* mine) {
     if (m_segmentTool) m_segmentTool->setMine(mine);
     if (m_wallTool) m_wallTool->setMine(mine);
     if (m_triggerTool) m_triggerTool->setMine(mine);
-    if (m_objectTool) m_objectTool->setMine(const_cast<Mine*>(mine));
+    if (m_objectTool) m_objectTool->setMine(mine);
     if (m_textureTool) m_textureTool->setMine(const_cast<Mine*>(mine));
     if (m_diagnosticsTool) m_diagnosticsTool->setMine(const_cast<Mine*>(mine));
     
