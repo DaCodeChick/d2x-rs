@@ -1,8 +1,10 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 #include "../toolpanel/ToolPanel.h"
+#include "../texturebrowser/TextureBrowser.h"
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QDockWidget>
 
 namespace dle {
 
@@ -11,6 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(std::make_unique<Ui::MainWindow>())
     , m_mine(std::make_unique<Mine>())
     , m_toolPanel(nullptr)
+    , m_textureBrowser(nullptr)
 {
     ui->setupUi(this);
     setupConnections();
@@ -57,6 +60,15 @@ void MainWindow::setupDockWidgets() {
     m_toolPanel = new ToolPanel(this);
     addDockWidget(Qt::LeftDockWidgetArea, m_toolPanel);
     
+    // Create texture browser dock widget
+    auto* textureBrowserDock = new QDockWidget("Texture Browser", this);
+    m_textureBrowser = new TextureBrowser(this);
+    textureBrowserDock->setWidget(m_textureBrowser);
+    addDockWidget(Qt::LeftDockWidgetArea, textureBrowserDock);
+    
+    // Stack the texture browser above the tool panel
+    tabifyDockWidget(m_toolPanel, textureBrowserDock);
+    
     // Connect tool panel visibility to menu action if it exists
     // Note: We'll need to add actionToggleToolPanel to the UI file later
     // For now, the tool panel is visible by default
@@ -65,6 +77,15 @@ void MainWindow::setupDockWidgets() {
     if (m_mine) {
         m_toolPanel->setMine(m_mine.get());
     }
+    
+    // Connect texture browser signals
+    connect(m_textureBrowser, &TextureBrowser::baseTextureSelected, this, [this](int16_t textureId) {
+        ui->statusbar->showMessage(QString("Base texture selected: %1").arg(textureId), 2000);
+    });
+    
+    connect(m_textureBrowser, &TextureBrowser::overlayTextureSelected, this, [this](int16_t textureId) {
+        ui->statusbar->showMessage(QString("Overlay texture selected: %1").arg(textureId), 2000);
+    });
 }
 
 void MainWindow::updateWindowTitle() {

@@ -13,6 +13,7 @@ QT_END_NAMESPACE
 namespace dle {
 
 class ToolPanel;
+class TextureBrowser;
 
 /**
  * @brief Main window for the Descent Level Editor
@@ -75,6 +76,7 @@ private:
     
     // Dock widgets
     ToolPanel* m_toolPanel;
+    TextureBrowser* m_textureBrowser;
 };
 
 } // namespace dle
