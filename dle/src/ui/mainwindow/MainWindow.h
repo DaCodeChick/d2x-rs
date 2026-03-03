@@ -1,5 +1,4 @@
-#ifndef DLE_MAINWINDOW_H
-#define DLE_MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
 #include <memory>
@@ -72,5 +71,3 @@ private:
 };
 
 } // namespace dle
-
-#endif // DLE_MAINWINDOW_H

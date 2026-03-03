@@ -1,5 +1,4 @@
-#ifndef DLE_MATCEN_H
-#define DLE_MATCEN_H
+#pragma once
 
 #include <cstdint>
 #include <array>
@@ -78,5 +77,3 @@ private:
 };
 
 } // namespace dle
-
-#endif // DLE_MATCEN_H

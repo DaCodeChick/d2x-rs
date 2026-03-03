@@ -1,5 +1,4 @@
-#ifndef DLE_MINE_H
-#define DLE_MINE_H
+#pragma once
 
 #include "../types/Types.h"
 #include "Segment.h"
@@ -280,4 +279,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_MINE_H

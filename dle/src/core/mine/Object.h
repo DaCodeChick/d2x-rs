@@ -1,5 +1,4 @@
-#ifndef DLE_OBJECT_H
-#define DLE_OBJECT_H
+#pragma once
 
 #include "../types/Types.h"
 #include <cstdint>
@@ -270,4 +269,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_OBJECT_H

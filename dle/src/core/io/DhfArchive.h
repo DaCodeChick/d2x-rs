@@ -1,5 +1,4 @@
-#ifndef DLE_DHFARCHIVE_H
-#define DLE_DHFARCHIVE_H
+#pragma once
 
 #include <QFile>
 #include <QString>
@@ -160,4 +159,3 @@ inline QString dhfErrorString(DhfError error) {
 
 } // namespace dle
 
-#endif // DLE_DHFARCHIVE_H

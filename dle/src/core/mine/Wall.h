@@ -1,5 +1,4 @@
-#ifndef DLE_WALL_H
-#define DLE_WALL_H
+#pragma once
 
 #include "../types/Types.h"
 #include <cstdint>
@@ -151,4 +150,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_WALL_H

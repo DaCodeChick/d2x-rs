@@ -1,5 +1,4 @@
-#ifndef DLE_SEGMENT_H
-#define DLE_SEGMENT_H
+#pragma once
 
 #include "../types/Types.h"
 #include "Side.h"
@@ -246,4 +245,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_SEGMENT_H

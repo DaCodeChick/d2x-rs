@@ -1,5 +1,4 @@
-#ifndef DLE_TYPES_H
-#define DLE_TYPES_H
+#pragma once
 
 #include <cstdint>
 #include <cmath>
@@ -284,4 +283,3 @@ enum SegmentType : uint8_t {
 
 } // namespace dle
 
-#endif // DLE_TYPES_H

@@ -1,5 +1,4 @@
-#ifndef DLE_SIDE_H
-#define DLE_SIDE_H
+#pragma once
 
 #include "../types/Types.h"
 #include <memory>
@@ -161,4 +160,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_SIDE_H

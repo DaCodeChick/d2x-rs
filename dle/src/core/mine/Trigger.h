@@ -1,5 +1,4 @@
-#ifndef DLE_TRIGGER_H
-#define DLE_TRIGGER_H
+#pragma once
 
 #include "../types/Types.h"
 #include <cstdint>
@@ -200,4 +199,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_TRIGGER_H

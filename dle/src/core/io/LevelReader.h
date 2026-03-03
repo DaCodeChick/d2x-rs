@@ -1,5 +1,4 @@
-#ifndef DLE_LEVELREADER_H
-#define DLE_LEVELREADER_H
+#pragma once
 
 #include <expected>
 #include <string>
@@ -138,4 +137,3 @@ private:
 
 } // namespace dle
 
-#endif // DLE_LEVELREADER_H
