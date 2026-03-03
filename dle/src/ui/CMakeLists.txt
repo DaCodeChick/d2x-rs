@@ -13,6 +13,9 @@ add_library(dle_ui STATIC
     toolpanel/WallTool.h
     toolpanel/WallTool.cpp
     toolpanel/WallTool.ui
+    toolpanel/TriggerTool.h
+    toolpanel/TriggerTool.cpp
+    toolpanel/TriggerTool.ui
 )
 
 target_include_directories(dle_ui PUBLIC
