@@ -7,6 +7,9 @@ add_library(dle_ui STATIC
     mainwindow/MainWindow.ui
     toolpanel/ToolPanel.h
     toolpanel/ToolPanel.cpp
+    toolpanel/SegmentTool.h
+    toolpanel/SegmentTool.cpp
+    toolpanel/SegmentTool.ui
 )
 
 target_include_directories(dle_ui PUBLIC

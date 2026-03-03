@@ -39,10 +39,10 @@ public:
     ~ToolPanel();
 
     /**
-     * @brief Set the mine data for all tools
+     * @brief Set the mine data for all tools (non-owning observer)
      * @param mine Pointer to the mine being edited
      */
-    void setMine(Mine* mine);
+    void setMine(const Mine* mine);
 
     /**
      * @brief Refresh all tools with current mine data
@@ -79,7 +79,7 @@ private:
     void setupConnections();
 
     QTabWidget* m_tabWidget;
-    Mine* m_mine;
+    const Mine* m_mine;
 
     // Tool tabs
     std::unique_ptr<SegmentTool> m_segmentTool;
