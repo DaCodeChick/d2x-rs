@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
     // Set application info
     app.setApplicationName("DLE");
     app.setApplicationDisplayName("Descent Level Editor");
-    app.setApplicationVersion("2.0.0");
+    app.setApplicationVersion("0.1.0");
     app.setOrganizationName("Descent Community");
     
     // Set application icon
